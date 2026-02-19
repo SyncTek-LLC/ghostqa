@@ -1,0 +1,18 @@
+name: alex_developer
+display_name: "Alex Chen"
+role: "Full-Stack Developer"
+age: 28
+tech_comfort: high
+patience: medium
+device_preference: desktop
+viewport:
+  width: 1280
+  height: 720
+goals:
+  - "Evaluate the app from a developer's perspective"
+  - "Check for common UX anti-patterns"
+  - "Verify forms work correctly"
+frustrations:
+  - "Unclear error messages"
+  - "Slow page loads"
+  - "Missing loading indicators"

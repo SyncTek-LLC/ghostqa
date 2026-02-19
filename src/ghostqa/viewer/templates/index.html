@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}GhostQA Dashboard — All Runs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Test Runs</h1>
+</div>
+
+<!-- Summary Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_runs }}</div>
+        <div class="stat-label">Total Runs</div>
+    </div>
+    <div class="stat-card stat-card-pass">
+        <div class="stat-value">{{ pass_count }}</div>
+        <div class="stat-label">Passed</div>
+    </div>
+    <div class="stat-card stat-card-fail">
+        <div class="stat-value">{{ fail_count }}</div>
+        <div class="stat-label">Failed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ total_cost | format_cost }}</div>
+        <div class="stat-label">Total Cost</div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <input
+        type="text"
+        id="filter-input"
+        class="filter-input"
+        placeholder="Filter by run ID, product, journey, persona, or status..."
+        aria-label="Filter runs"
+    >
+    <div class="filter-counts" id="filter-counts"></div>
+</div>
+
+<!-- Runs Table -->
+{% if runs %}
+<div class="table-responsive">
+    <table class="runs-table" id="runs-table">
+        <thead>
+            <tr>
+                <th>Run ID</th>
+                <th>Product</th>
+                <th>Journey</th>
+                <th>Persona</th>
+                <th>Status</th>
+                <th>Steps</th>
+                <th>Cost</th>
+                <th>Duration</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+            <tr class="run-row" data-status="{{ 'pass' if run.passed else 'fail' }}">
+                <td class="cell-mono">
+                    <a href="/runs/{{ run._run_id }}">{{ run._run_id }}</a>
+                </td>
+                <td>{{ run.product_name | default("—", true) }}</td>
+                <td>{{ run.scenario_name | default("—", true) }}</td>
+                <td>{{ run.persona_name | default("—", true) }}</td>
+                <td>{{ run.passed | status_badge }}</td>
+                <td>
+                    {% set steps = run.step_reports | default([]) %}
+                    {% set passed_steps = steps | selectattr("passed") | list | length %}
+                    {{ passed_steps }}/{{ steps | length }}
+                </td>
+                <td class="cell-mono">{{ run.cost_usd | default(0) | format_cost }}</td>
+                <td>{{ run.duration_seconds | default(0) | format_duration }}</td>
+                <td class="cell-nowrap">{{ run._date_display }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p class="empty-title">No runs found</p>
+    <p>Run <code>ghostqa run</code> to generate test evidence, then refresh this page.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var input = document.getElementById('filter-input');
+    var table = document.getElementById('runs-table');
+    var counts = document.getElementById('filter-counts');
+    if (!input || !table) return;
+
+    var rows = table.querySelectorAll('tbody .run-row');
+
+    input.addEventListener('input', function() {
+        var query = this.value.toLowerCase().trim();
+        var visible = 0;
+        for (var i = 0; i < rows.length; i++) {
+            var text = rows[i].textContent.toLowerCase();
+            var show = !query || text.indexOf(query) !== -1;
+            rows[i].style.display = show ? '' : 'none';
+            if (show) visible++;
+        }
+        if (query) {
+            counts.textContent = 'Showing ' + visible + ' of ' + rows.length + ' runs';
+        } else {
+            counts.textContent = '';
+        }
+    });
+})();
+</script>
+{% endblock %}

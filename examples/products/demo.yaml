@@ -1,0 +1,12 @@
+name: demo
+display_name: "GhostQA Demo App"
+base_url: "http://localhost:5000"
+services:
+  frontend:
+    url: "http://localhost:5000"
+viewports:
+  desktop:
+    width: 1280
+    height: 720
+cost_limits:
+  per_run_usd: 5.00

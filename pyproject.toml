@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ghostqa"
+version = "0.1.0"
+description = "AI persona-based behavioral testing for web apps. No test scripts. YAML-configured. Vision-powered."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "SyncTek LLC" },
+]
+keywords = ["testing", "qa", "ai", "behavioral", "persona", "vision", "playwright"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "anthropic>=0.39.0",
+    "playwright>=1.48.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+    "jinja2>=3.1.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/SyncTek-LLC/ghostqa"
+Repository = "https://github.com/SyncTek-LLC/ghostqa"
+Issues = "https://github.com/SyncTek-LLC/ghostqa/issues"
+
+[project.scripts]
+ghostqa = "ghostqa.cli.app:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ghostqa"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: requires running app and API key",
+    "dogfood: GhostQA testing itself",
+]

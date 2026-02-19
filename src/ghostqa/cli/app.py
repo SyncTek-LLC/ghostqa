@@ -1,0 +1,94 @@
+"""GhostQA CLI — Main Typer entry point.
+
+Registers all subcommands and provides --version / --verbose global options.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+import typer
+from rich.console import Console
+
+from ghostqa import __version__
+
+# ── ASCII Banner ──────────────────────────────────────────────────────────
+
+BANNER = r"""
+ ██████╗ ██╗  ██╗ ██████╗ ███████╗████████╗ ██████╗  █████╗
+██╔════╝ ██║  ██║██╔═══██╗██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗
+██║  ███╗███████║██║   ██║███████╗   ██║   ██║   ██║███████║
+██║   ██║██╔══██║██║   ██║╚════██║   ██║   ██║▄▄ ██║██╔══██║
+╚██████╔╝██║  ██║╚██████╔╝███████║   ██║   ╚██████╔╝██║  ██║
+ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝    ╚══▀▀═╝ ╚═╝  ╚═╝
+"""
+
+TAGLINE = "AI ghosts walk your app so real users don't trip."
+
+console = Console()
+
+# ── Version callback ──────────────────────────────────────────────────────
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(BANNER, style="bold cyan")
+        console.print(f"  {TAGLINE}", style="dim")
+        console.print(f"  v{__version__}\n", style="bold")
+        raise typer.Exit()
+
+
+# ── Main app ──────────────────────────────────────────────────────────────
+
+app = typer.Typer(
+    name="ghostqa",
+    help=f"{BANNER}\n{TAGLINE}",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+    add_completion=False,
+)
+
+
+@app.callback()
+def main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-V",
+        help="Show GhostQA version and exit.",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Enable verbose output.",
+    ),
+) -> None:
+    """GhostQA -- AI persona-based behavioral testing for web apps.
+
+    No test scripts. YAML-configured. Vision-powered.
+    """
+    if verbose:
+        import logging
+
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s  %(message)s")
+
+
+# ── Register subcommands ──────────────────────────────────────────────────
+# Each subcommand is a separate module to keep this file lean.
+
+from ghostqa.cli.config_cmd import config_app  # noqa: E402
+from ghostqa.cli.dashboard import dashboard  # noqa: E402
+from ghostqa.cli.init_cmd import init  # noqa: E402
+from ghostqa.cli.install import install  # noqa: E402
+from ghostqa.cli.report import report  # noqa: E402
+from ghostqa.cli.run import run  # noqa: E402
+
+app.command(name="init", help="Initialize a .ghostqa/ project directory.")(init)
+app.command(name="install", help="Install browser dependencies (Playwright).")(install)
+app.command(name="run", help="Run GhostQA behavioral tests.")(run)
+app.command(name="report", help="View or export run reports.")(report)
+app.command(name="dashboard", help="Launch the evidence dashboard viewer.")(dashboard)
+app.add_typer(config_app, name="config", help="View and manage GhostQA configuration.")

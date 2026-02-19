@@ -1,0 +1,35 @@
+id: demo-onboarding
+display_name: "Demo App Onboarding"
+product: demo
+persona: alex_developer
+level: smoke
+tags: [onboarding, critical_path]
+steps:
+  - id: visit_homepage
+    type: browser
+    goal: "Navigate to the homepage and verify it loads"
+    url: "/"
+    checkpoints:
+      - type: text_present
+        value: "Welcome"
+
+  - id: navigate_signup
+    type: browser
+    goal: "Find and click the signup or register link"
+    checkpoints:
+      - type: text_present
+        value: "Sign"
+
+  - id: fill_signup_form
+    type: browser
+    goal: "Fill out the signup form with test credentials"
+    checkpoints:
+      - type: text_present
+        value: "email"
+
+  - id: verify_success
+    type: browser
+    goal: "Verify that signup was successful and you are logged in"
+    checkpoints:
+      - type: text_present
+        value: "dashboard"
