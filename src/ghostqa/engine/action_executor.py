@@ -15,7 +15,6 @@ import dataclasses
 import logging
 import re
 import time
-import traceback
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -86,17 +85,19 @@ class ActionExecutor:
     SETTLE_TIMEOUT_MS = 10_000
 
     # CSS selector metacharacters that must be escaped
-    _CSS_META = str.maketrans({
-        '"': r'\"',
-        "'": r"\'",
-        "[": r"\[",
-        "]": r"\]",
-        "\\": "\\\\",
-        "{": r"\{",
-        "}": r"\}",
-    })
+    _CSS_META = str.maketrans(
+        {
+            '"': r"\"",
+            "'": r"\'",
+            "[": r"\[",
+            "]": r"\]",
+            "\\": "\\\\",
+            "{": r"\{",
+            "}": r"\}",
+        }
+    )
 
-    def __init__(self, page: "Page", device_scale_factor: int = 1) -> None:
+    def __init__(self, page: Page, device_scale_factor: int = 1) -> None:
         self._page = page
         self._dpr = device_scale_factor
         # Cache CSS viewport dimensions for coordinate space detection
@@ -143,17 +144,17 @@ class ActionExecutor:
         False if all strategies failed.
         """
         # Strategy 1: Try close buttons with common aria-labels
-        _CLOSE_LABELS = [
-            'Close navigation menu',
-            'Close navigation',
-            'Close menu',
-            'Close sidebar',
-            'Close',
-            'Dismiss',
-            'Close dialog',
-            'Close modal',
+        close_labels = [
+            "Close navigation menu",
+            "Close navigation",
+            "Close menu",
+            "Close sidebar",
+            "Close",
+            "Dismiss",
+            "Close dialog",
+            "Close modal",
         ]
-        for label in _CLOSE_LABELS:
+        for label in close_labels:
             try:
                 btn = self._page.locator(f'[aria-label="{label}"]')
                 if btn.count() > 0 and btn.first.is_visible():
@@ -168,7 +169,7 @@ class ActionExecutor:
 
         # Strategy 2: Press Escape key
         try:
-            self._page.keyboard.press('Escape')
+            self._page.keyboard.press("Escape")
             # Check if pressing Escape actually changed something by waiting
             # briefly and seeing if the page re-renders
             self._page.wait_for_timeout(300)
@@ -185,7 +186,7 @@ class ActionExecutor:
         try:
             self._page.mouse.click(
                 min(self._css_width - 40, 350),  # right side of viewport
-                self._css_height // 2,             # vertical center
+                self._css_height // 2,  # vertical center
             )
             logger.info("Overlay dismissed via backdrop click")
             return True
@@ -204,9 +205,7 @@ class ActionExecutor:
         """
         msg = str(error).lower()
         return (
-            'intercepts pointer events' in msg
-            or 'mobile-sidebar' in msg
-            or ('sidebar' in msg and 'intercept' in msg)
+            "intercepts pointer events" in msg or "mobile-sidebar" in msg or ("sidebar" in msg and "intercept" in msg)
         )
 
     # -- Post-Action Verification --------------------------------------------
@@ -272,16 +271,10 @@ class ActionExecutor:
 
         navigation = before.get("url") != after.get("url")
         if navigation:
-            changes.append(
-                f"navigated: {before.get('url')} -> {after.get('url')}"
-            )
+            changes.append(f"navigated: {before.get('url')} -> {after.get('url')}")
 
-        modal_opened = (
-            after.get("visible_modals", 0) > before.get("visible_modals", 0)
-        )
-        modal_closed = (
-            after.get("visible_modals", 0) < before.get("visible_modals", 0)
-        )
+        modal_opened = after.get("visible_modals", 0) > before.get("visible_modals", 0)
+        modal_closed = after.get("visible_modals", 0) < before.get("visible_modals", 0)
         if modal_opened:
             changes.append("modal opened")
         if modal_closed:
@@ -294,14 +287,8 @@ class ActionExecutor:
         if before.get("scroll_y") != after.get("scroll_y"):
             changes.append("scrolled")
 
-        if (
-            before.get("focused_tag") != after.get("focused_tag")
-            or before.get("focused_id") != after.get("focused_id")
-        ):
-            changes.append(
-                f"focus moved to {after.get('focused_tag')}"
-                f"#{after.get('focused_id', '')}"
-            )
+        if before.get("focused_tag") != after.get("focused_tag") or before.get("focused_id") != after.get("focused_id"):
+            changes.append(f"focus moved to {after.get('focused_tag')}#{after.get('focused_id', '')}")
 
         if before.get("alert_count", 0) != after.get("alert_count", 0):
             changes.append("alert/error appeared or disappeared")
@@ -368,7 +355,7 @@ class ActionExecutor:
         action = decision.action.lower().strip()
 
         # Normalize action type variants to standard names
-        _ACTION_ALIASES = {
+        action_aliases = {
             "fill out": "fill",
             "fill in": "fill",
             "type": "fill",
@@ -388,12 +375,12 @@ class ActionExecutor:
         }
 
         # Try exact match first, then try first word for multi-word actions
-        if action in _ACTION_ALIASES:
-            action = _ACTION_ALIASES[action]
+        if action in action_aliases:
+            action = action_aliases[action]
         else:
             first_word = action.split()[0] if action else ""
-            if first_word in _ACTION_ALIASES:
-                action = _ACTION_ALIASES[first_word]
+            if first_word in action_aliases:
+                action = action_aliases[first_word]
 
         start = time.monotonic()
 
@@ -403,11 +390,7 @@ class ActionExecutor:
         _skip_verify = ("done", "stuck", "wait", "scroll", "fill", "keyboard")
 
         # Capture page state before action for verification
-        state_before = (
-            self._capture_page_state()
-            if action not in _skip_verify
-            else {}
-        )
+        state_before = self._capture_page_state() if action not in _skip_verify else {}
 
         overlay_dismissals = 0
 
@@ -460,9 +443,7 @@ class ActionExecutor:
             # Wait for page to settle after any real action
             if action not in ("done", "stuck", "wait"):
                 try:
-                    self._page.wait_for_load_state(
-                        "domcontentloaded", timeout=self.SETTLE_TIMEOUT_MS
-                    )
+                    self._page.wait_for_load_state("domcontentloaded", timeout=self.SETTLE_TIMEOUT_MS)
                 except Exception:
                     # Page may already be loaded; don't fail on timeout
                     pass
@@ -483,9 +464,7 @@ class ActionExecutor:
                 try:
                     self._page.wait_for_timeout(500)
                     state_retry = self._capture_page_state()
-                    retry_change = self._detect_page_change(
-                        state_before, state_retry
-                    )
+                    retry_change = self._detect_page_change(state_before, state_retry)
                     if retry_change.get("changed"):
                         # Delayed effect detected
                         change_info = retry_change
@@ -533,18 +512,28 @@ class ActionExecutor:
         # (especially on mobile DPR viewports). Detect dismiss intent from
         # the target description and use semantic selectors instead.
         target_lower_fp = target_text.lower()
-        _DISMISS_KEYWORDS = [
-            'close', 'dismiss', 'x button', 'close button',
-            'close navigation', 'close menu', 'close sidebar',
+        dismiss_keywords = [
+            "close",
+            "dismiss",
+            "x button",
+            "close button",
+            "close navigation",
+            "close menu",
+            "close sidebar",
         ]
-        if any(kw in target_lower_fp for kw in _DISMISS_KEYWORDS):
+        if any(kw in target_lower_fp for kw in dismiss_keywords):
             # Strategy 1: Try aria-label based close buttons
-            _CLOSE_LABELS = [
-                'Close navigation menu', 'Close', 'Dismiss',
-                'Close navigation', 'Close menu', 'Close sidebar',
-                'Close dialog', 'Close modal',
+            close_labels = [
+                "Close navigation menu",
+                "Close",
+                "Dismiss",
+                "Close navigation",
+                "Close menu",
+                "Close sidebar",
+                "Close dialog",
+                "Close modal",
             ]
-            for _label in _CLOSE_LABELS:
+            for _label in close_labels:
                 try:
                     btn = self._page.get_by_label(_label)
                     if btn.count() > 0 and btn.first.is_visible():
@@ -557,10 +546,10 @@ class ActionExecutor:
             # Strategy 2: Try clicking the backdrop overlay
             try:
                 backdrop = self._page.locator(
-                    '.fixed.inset-0.bg-black\\/60, '
+                    ".fixed.inset-0.bg-black\\/60, "
                     '.fixed.inset-0[aria-hidden="true"], '
-                    '[data-backdrop], '
-                    '.overlay, .backdrop'
+                    "[data-backdrop], "
+                    ".overlay, .backdrop"
                 )
                 if backdrop.count() > 0 and backdrop.first.is_visible():
                     backdrop.first.click(timeout=5000, force=True)
@@ -571,7 +560,7 @@ class ActionExecutor:
 
             # Strategy 3: Press Escape key (most modals/sidebars respond to Escape)
             try:
-                self._page.keyboard.press('Escape')
+                self._page.keyboard.press("Escape")
                 self._page.wait_for_timeout(300)
                 return
             except Exception:
@@ -580,17 +569,27 @@ class ActionExecutor:
         # -- Fast-path: Hamburger / Menu Open Patterns -----------------------
         # Similarly, "open menu" / "hamburger" targets should use semantic
         # selectors rather than coordinate clicks.
-        _OPEN_KEYWORDS = [
-            'hamburger', 'open menu', 'open navigation', 'toggle menu',
-            'nav menu', 'menu button', 'navigation button',
+        open_keywords = [
+            "hamburger",
+            "open menu",
+            "open navigation",
+            "toggle menu",
+            "nav menu",
+            "menu button",
+            "navigation button",
         ]
-        if any(kw in target_lower_fp for kw in _OPEN_KEYWORDS):
-            _OPEN_LABELS = [
-                'Open navigation menu', 'Toggle menu', 'Menu',
-                'Open menu', 'Navigation', 'Toggle navigation',
-                'Navigation menu', 'Open navigation',
+        if any(kw in target_lower_fp for kw in open_keywords):
+            open_labels = [
+                "Open navigation menu",
+                "Toggle menu",
+                "Menu",
+                "Open menu",
+                "Navigation",
+                "Toggle navigation",
+                "Navigation menu",
+                "Open navigation",
             ]
-            for _label in _OPEN_LABELS:
+            for _label in open_labels:
                 try:
                     btn = self._page.get_by_label(_label)
                     if btn.count() > 0 and btn.first.is_visible():
@@ -607,7 +606,7 @@ class ActionExecutor:
         #   "Sign in link" -> "Sign in"
         label: str | None = None
         label_match = re.match(
-            r'^(?:the\s+)?(.+?)\s+(?:button|btn|link|option|card|item|tile|element|tab|choice|selector|icon)\b',
+            r"^(?:the\s+)?(.+?)\s+(?:button|btn|link|option|card|item|tile|element|tab|choice|selector|icon)\b",
             target_text,
             re.I,
         )
@@ -619,7 +618,7 @@ class ActionExecutor:
         # and "Some text at (300, 400)" -> "Some text"
         clean_target: str | None = None
         coord_suffix = re.match(
-            r'^(.+?)\s+(?:at\s+(?:approximately|around|near|about|position)?\s*[\d(])',
+            r"^(.+?)\s+(?:at\s+(?:approximately|around|near|about|position)?\s*[\d(])",
             target_text,
             re.I,
         )
@@ -627,8 +626,7 @@ class ActionExecutor:
             raw = coord_suffix.group(1).strip()
             # Strip element type words from the end: "Ground-Up Construction option" -> "Ground-Up Construction"
             clean_target = re.sub(
-                r'\s+(?:button|btn|link|option|card|item|tile|element|tab|choice|selector|icon)$',
-                '', raw, flags=re.I
+                r"\s+(?:button|btn|link|option|card|item|tile|element|tab|choice|selector|icon)$", "", raw, flags=re.I
             ).strip()
             if not clean_target:
                 clean_target = raw  # Don't lose the text if stripping removed everything
@@ -637,23 +635,27 @@ class ActionExecutor:
         # contextual prepositions.
         # Handles targets like:
         #   "Get started -> under 3. Set budget" -> primary="Get started", context="3. Set budget"
-        #   "Get started -> link under 3. Set budget at 238, 988" -> primary="Get started", context="3. Set budget at 238, 988"
+        #   "Get started -> link under 3. Set budget at 238, 988"
+        #       -> primary="Get started", context="3. Set budget at 238, 988"
         #   "Get started -> at 238, 988" -> primary="Get started", context=None (coordinates only)
-        _CONTEXT_PREPS = re.compile(
-            r'\s+(?:under|below|next\s+to|near|beside|above|on\s+the|in\s+the|within|inside|for|of)\s+',
+        context_preps = re.compile(
+            r"\s+(?:under|below|next\s+to|near|beside|above|on\s+the|in\s+the|within|inside|for|of)\s+",
             re.I,
         )
         # Strip common Unicode arrows and decorative characters
-        normalized = re.sub(r'[\u2190-\u21FF\u25A0-\u25FF\u2700-\u27BF\u2013\u2014\u2022\u00D7]', '', target_text).strip()
-        normalized = re.sub(r'\s{2,}', ' ', normalized)  # collapse multiple spaces
+        unicode_arrow_re = r"[\u2190-\u21FF\u25A0-\u25FF\u2700-\u27BF\u2013\u2014\u2022\u00D7]"
+        normalized = re.sub(unicode_arrow_re, "", target_text).strip()
+        normalized = re.sub(r"\s{2,}", " ", normalized)  # collapse multiple spaces
 
-        context_parts = _CONTEXT_PREPS.split(normalized, maxsplit=1)
+        context_parts = context_preps.split(normalized, maxsplit=1)
         primary_text = context_parts[0].strip() if context_parts else normalized
         context_text = context_parts[1].strip() if len(context_parts) > 1 else None
         # Strip trailing element-type words from primary (e.g. "Get started link" -> "Get started")
         primary_text = re.sub(
-            r'\s+(?:button|btn|link|option|card|item|tile|element|tab|choice|selector|icon)$',
-            '', primary_text, flags=re.I,
+            r"\s+(?:button|btn|link|option|card|item|tile|element|tab|choice|selector|icon)$",
+            "",
+            primary_text,
+            flags=re.I,
         ).strip()
         # If primary_text collapsed to empty or equals the full target, don't use it
         if not primary_text or primary_text == target_text:
@@ -677,21 +679,39 @@ class ActionExecutor:
         # suffixes (e.g. "Set up budget ->") but the accessible name only contains
         # the text portion (e.g. "Add", "Set up budget"). Strip leading/trailing
         # punctuation and symbols to produce additional candidates.
-        _LEADING_SYMBOLS = re.compile(r'^[\+\-\×\·\•\→\←\>\<\☰\✕\✖\✗\✘\≡\⋮\⊕\⊖\▶\▸\◀\◂\s]+')
-        _TRAILING_SYMBOLS = re.compile(r'[\+\-\×\·\•\→\←\>\<\✕\✖\✗\✘\▶\▸\◀\◂\s]+$')
+        leading_symbols = re.compile(r"^[\+\-\×\·\•\→\←\>\<\☰\✕\✖\✗\✘\≡\⋮\⊕\⊖\▶\▸\◀\◂\s]+")
+        trailing_symbols = re.compile(r"[\+\-\×\·\•\→\←\>\<\✕\✖\✗\✘\▶\▸\◀\◂\s]+$")
         extra_candidates: list[str] = []
         for c in list(candidates):
             # Strip leading symbols
-            stripped_leading = _LEADING_SYMBOLS.sub('', c).strip()
-            if stripped_leading and stripped_leading != c and stripped_leading not in candidates and stripped_leading not in extra_candidates:
+            stripped_leading = leading_symbols.sub("", c).strip()
+            is_new_leading = (
+                stripped_leading
+                and stripped_leading != c
+                and stripped_leading not in candidates
+                and stripped_leading not in extra_candidates
+            )
+            if is_new_leading:
                 extra_candidates.append(stripped_leading)
             # Strip trailing symbols
-            stripped_trailing = _TRAILING_SYMBOLS.sub('', c).strip()
-            if stripped_trailing and stripped_trailing != c and stripped_trailing not in candidates and stripped_trailing not in extra_candidates:
+            stripped_trailing = trailing_symbols.sub("", c).strip()
+            is_new_trailing = (
+                stripped_trailing
+                and stripped_trailing != c
+                and stripped_trailing not in candidates
+                and stripped_trailing not in extra_candidates
+            )
+            if is_new_trailing:
                 extra_candidates.append(stripped_trailing)
             # Strip both
-            stripped_both = _TRAILING_SYMBOLS.sub('', _LEADING_SYMBOLS.sub('', c)).strip()
-            if stripped_both and stripped_both != c and stripped_both not in candidates and stripped_both not in extra_candidates:
+            stripped_both = trailing_symbols.sub("", leading_symbols.sub("", c)).strip()
+            is_new_both = (
+                stripped_both
+                and stripped_both != c
+                and stripped_both not in candidates
+                and stripped_both not in extra_candidates
+            )
+            if is_new_both:
                 extra_candidates.append(stripped_both)
 
         # Insert symbol-stripped variants right after the originals (higher priority than icon mappings)
@@ -701,47 +721,82 @@ class ActionExecutor:
         # AI personas describe icon-only buttons visually (e.g. "hamburger menu icon")
         # but the actual aria-label is different (e.g. "Open navigation menu").
         # Add common aria-label variants as fallback candidates.
-        _ICON_ARIA_MAPPINGS: dict[re.Pattern, list[str]] = {
-            re.compile(r'hamburger|three.?line|menu\s*icon|nav(?:igation)?\s*icon|toggle\s*menu', re.I): [
-                "Open navigation menu", "Close navigation menu", "Toggle menu",
-                "Toggle navigation", "Menu", "Navigation menu", "Open menu", "Close menu",
+        icon_aria_mappings: dict[re.Pattern, list[str]] = {
+            re.compile(r"hamburger|three.?line|menu\s*icon|nav(?:igation)?\s*icon|toggle\s*menu", re.I): [
+                "Open navigation menu",
+                "Close navigation menu",
+                "Toggle menu",
+                "Toggle navigation",
+                "Menu",
+                "Navigation menu",
+                "Open menu",
+                "Close menu",
             ],
-            re.compile(r'close\s*(?:button|icon|modal)?|x\s*(?:button|icon)|dismiss', re.I): [
-                "Close", "Dismiss", "Close dialog", "Close modal",
+            re.compile(r"close\s*(?:button|icon|modal)?|x\s*(?:button|icon)|dismiss", re.I): [
+                "Close",
+                "Dismiss",
+                "Close dialog",
+                "Close modal",
             ],
-            re.compile(r'search\s*(?:button|icon)?', re.I): [
-                "Search", "Toggle search", "Open search",
+            re.compile(r"search\s*(?:button|icon)?", re.I): [
+                "Search",
+                "Toggle search",
+                "Open search",
             ],
-            re.compile(r'profile\s*(?:button|icon)?|avatar|user\s*(?:button|icon|menu)?|account\s*(?:button|icon)?', re.I): [
-                "Profile", "User menu", "Account", "Account menu", "Open profile",
+            re.compile(
+                r"profile\s*(?:button|icon)?|avatar|user\s*(?:button|icon|menu)?|account\s*(?:button|icon)?",
+                re.I,
+            ): [
+                "Profile",
+                "User menu",
+                "Account",
+                "Account menu",
+                "Open profile",
             ],
-            re.compile(r'settings?\s*(?:button|icon)?|gear\s*(?:button|icon)?|cog\s*(?:button|icon)?', re.I): [
-                "Settings", "Open settings", "Preferences",
+            re.compile(r"settings?\s*(?:button|icon)?|gear\s*(?:button|icon)?|cog\s*(?:button|icon)?", re.I): [
+                "Settings",
+                "Open settings",
+                "Preferences",
             ],
-            re.compile(r'notification|bell\s*(?:button|icon)?', re.I): [
-                "Notifications", "View notifications", "Toggle notifications",
+            re.compile(r"notification|bell\s*(?:button|icon)?", re.I): [
+                "Notifications",
+                "View notifications",
+                "Toggle notifications",
             ],
-            re.compile(r'(?:add|plus|new)\s*(?:button|icon)?', re.I): [
-                "Add", "Create", "New", "Add new",
+            re.compile(r"(?:add|plus|new)\s*(?:button|icon)?", re.I): [
+                "Add",
+                "Create",
+                "New",
+                "Add new",
             ],
-            re.compile(r'(?:delete|trash|remove)\s*(?:button|icon)?', re.I): [
-                "Delete", "Remove", "Trash",
+            re.compile(r"(?:delete|trash|remove)\s*(?:button|icon)?", re.I): [
+                "Delete",
+                "Remove",
+                "Trash",
             ],
-            re.compile(r'(?:edit|pencil|pen)\s*(?:button|icon)?', re.I): [
-                "Edit", "Modify",
+            re.compile(r"(?:edit|pencil|pen)\s*(?:button|icon)?", re.I): [
+                "Edit",
+                "Modify",
             ],
-            re.compile(r'(?:more|dots|ellipsis|three\s*dots?|kebab|overflow)\s*(?:button|icon|menu)?', re.I): [
-                "More", "More options", "Actions", "Options",
+            re.compile(r"(?:more|dots|ellipsis|three\s*dots?|kebab|overflow)\s*(?:button|icon|menu)?", re.I): [
+                "More",
+                "More options",
+                "Actions",
+                "Options",
             ],
-            re.compile(r'(?:back|arrow.?left|go\s*back)\s*(?:button|icon)?', re.I): [
-                "Back", "Go back", "Navigate back",
+            re.compile(r"(?:back|arrow.?left|go\s*back)\s*(?:button|icon)?", re.I): [
+                "Back",
+                "Go back",
+                "Navigate back",
             ],
-            re.compile(r'(?:expand|collapse|chevron|arrow.?down|caret)\s*(?:button|icon)?', re.I): [
-                "Expand", "Collapse", "Toggle",
+            re.compile(r"(?:expand|collapse|chevron|arrow.?down|caret)\s*(?:button|icon)?", re.I): [
+                "Expand",
+                "Collapse",
+                "Toggle",
             ],
         }
         icon_candidates: list[str] = []
-        for pattern, aria_labels in _ICON_ARIA_MAPPINGS.items():
+        for pattern, aria_labels in icon_aria_mappings.items():
             if pattern.search(target_text):
                 for aria in aria_labels:
                     if aria not in candidates and aria not in icon_candidates:
@@ -778,7 +833,7 @@ class ActionExecutor:
                     for i in range(locator.count()):
                         try:
                             box = locator.nth(i).bounding_box(timeout=2000)
-                            if box and 0 <= box['x'] < self._css_width and 0 <= box['y'] < self._css_height:
+                            if box and 0 <= box["x"] < self._css_width and 0 <= box["y"] < self._css_height:
                                 locator.nth(i).click()
                                 return
                         except Exception:
@@ -824,7 +879,7 @@ class ActionExecutor:
                         for i in range(locator.count()):
                             try:
                                 box = locator.nth(i).bounding_box(timeout=2000)
-                                if box and 0 <= box['x'] < self._css_width and 0 <= box['y'] < self._css_height:
+                                if box and 0 <= box["x"] < self._css_width and 0 <= box["y"] < self._css_height:
                                     locator.nth(i).click(force=True)
                                     return
                             except Exception:
@@ -848,8 +903,10 @@ class ActionExecutor:
         if primary_text and context_text:
             # Strip any trailing coordinate info from context for cleaner text matching
             clean_context = re.sub(
-                r'\s+(?:at\s+(?:approximately|around|near|about|position)?\s*[\d(]).*$',
-                '', context_text, flags=re.I,
+                r"\s+(?:at\s+(?:approximately|around|near|about|position)?\s*[\d(]).*$",
+                "",
+                context_text,
+                flags=re.I,
             ).strip()
             if not clean_context:
                 clean_context = context_text
@@ -857,7 +914,7 @@ class ActionExecutor:
             try:
                 # Use JavaScript to find element by text with context in ancestor
                 element = self._page.evaluate_handle(
-                    '''([primary, context]) => {
+                    """([primary, context]) => {
                         const els = document.querySelectorAll('a, button, [role="button"], [role="link"]');
                         for (const el of els) {
                             const text = (el.textContent || '').trim();
@@ -871,7 +928,7 @@ class ActionExecutor:
                             }
                         }
                         return null;
-                    }''',
+                    }""",
                     [primary_text, clean_context],
                 )
                 js_element = element.as_element()
@@ -897,7 +954,7 @@ class ActionExecutor:
         # Search within modal scope first, then fall back to page.
         if decision.observation:
             obs_matches = re.findall(r"['\"]([^'\"]{2,50})['\"]", decision.observation)
-            _skip_words = frozenset({'css', 'i', 'a', 'the', 'at', 'in', 'on', 'is', 'it', 'to'})
+            _skip_words = frozenset({"css", "i", "a", "the", "at", "in", "on", "is", "it", "to"})
             for obs_text in obs_matches:
                 if obs_text.lower() in _skip_words:
                     continue
@@ -920,14 +977,14 @@ class ActionExecutor:
         # "submit", try finding form submit buttons or nearby icon buttons.
         # Search within modal scope first.
         target_lower = target_text.lower()
-        if any(kw in target_lower for kw in ['send', 'submit']):
+        if any(kw in target_lower for kw in ["send", "submit"]):
             # Try finding a submit button inside a form
             submit_btn = scope.locator('form button[type="submit"]:visible')
             if submit_btn.count() > 0:
                 submit_btn.first.click()
                 return
             # Try any button inside a form (some forms use default type)
-            form_btn = scope.locator('form button:visible')
+            form_btn = scope.locator("form button:visible")
             if form_btn.count() > 0:
                 form_btn.first.click()
                 return
@@ -939,26 +996,39 @@ class ActionExecutor:
         # Search within modal scope first.
         if decision.value:
             try:
-                selects = scope.locator('select:visible')
+                selects = scope.locator("select:visible")
                 select_count = selects.count()
                 if select_count > 0:
-                    _SELECT_STOP_WORDS = frozenset({
-                        'select', 'dropdown', 'drop', 'down', 'option', 'choose',
-                        'pick', 'the', 'for', 'and', 'from', 'with', 'click',
-                        'button', 'menu', 'list',
-                    })
+                    select_stop_words = frozenset(
+                        {
+                            "select",
+                            "dropdown",
+                            "drop",
+                            "down",
+                            "option",
+                            "choose",
+                            "pick",
+                            "the",
+                            "for",
+                            "and",
+                            "from",
+                            "with",
+                            "click",
+                            "button",
+                            "menu",
+                            "list",
+                        }
+                    )
                     target_words = [
-                        w.lower()
-                        for w in re.findall(r'\b\w{3,}\b', target_text)
-                        if w.lower() not in _SELECT_STOP_WORDS
+                        w.lower() for w in re.findall(r"\b\w{3,}\b", target_text) if w.lower() not in select_stop_words
                     ]
                     if target_words:
                         for i in range(select_count):
                             sel = selects.nth(i)
-                            sel_id = (sel.get_attribute('id') or '').lower()
-                            sel_name = (sel.get_attribute('name') or '').lower()
-                            sel_aria = (sel.get_attribute('aria-label') or '').lower()
-                            label_text = ''
+                            sel_id = (sel.get_attribute("id") or "").lower()
+                            sel_name = (sel.get_attribute("name") or "").lower()
+                            sel_aria = (sel.get_attribute("aria-label") or "").lower()
+                            label_text = ""
                             if sel_id:
                                 try:
                                     label_loc = scope.locator(f'label[for="{sel_id}"]')
@@ -989,7 +1059,7 @@ class ActionExecutor:
                         "() => document.activeElement ? document.activeElement.tagName.toLowerCase() : ''"
                     )
                     if focused_tag == "select":
-                        focused_el = self._page.locator(':focus').first
+                        focused_el = self._page.locator(":focus").first
                         self._select_option_fuzzy(focused_el, decision.value)
                 except Exception:
                     pass  # Best-effort; the click already happened
@@ -1019,10 +1089,7 @@ class ActionExecutor:
             if actual_value != value:
                 # Fall back to keyboard typing which simulates real keypresses
                 element.click()
-                element.evaluate(
-                    "el => { el.value = ''; "
-                    "el.dispatchEvent(new Event('input', {bubbles: true})); }"
-                )
+                element.evaluate("el => { el.value = ''; el.dispatchEvent(new Event('input', {bubbles: true})); }")
                 self._page.keyboard.type(value, delay=10)
         except Exception:
             pass  # Best-effort verification; don't fail the fill
@@ -1116,11 +1183,11 @@ class ActionExecutor:
         value = value.strip()
 
         # Already ISO format
-        if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", value):
             return value
 
         # MM/DD/YYYY or M/D/YYYY
-        m = re.match(r'^(\d{1,2})/(\d{1,2})/(\d{4})$', value)
+        m = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", value)
         if m:
             month, day, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
             return f"{year:04d}-{month:02d}-{day:02d}"
@@ -1162,9 +1229,9 @@ class ActionExecutor:
             }""")
             value_lower = value.lower()
             for opt in options:
-                opt_text_lower = opt['text'].lower()
+                opt_text_lower = opt["text"].lower()
                 if value_lower in opt_text_lower or opt_text_lower in value_lower:
-                    element.select_option(value=opt['value'])
+                    element.select_option(value=opt["value"])
                     return
             # 3. Try selecting by value string directly
             element.select_option(value=value)
@@ -1207,7 +1274,7 @@ class ActionExecutor:
         # Handles "Budgeted Amount ($) input field with placeholder 0.00"
         #       -> try get_by_label("Budgeted Amount ($)")
         desc_suffix = re.match(
-            r'^(.+?)\s+(?:input|field|text|box|area|textarea|select|dropdown|with|showing|at\s+\d)',
+            r"^(.+?)\s+(?:input|field|text|box|area|textarea|select|dropdown|with|showing|at\s+\d)",
             target_text,
             re.I,
         )
@@ -1224,28 +1291,41 @@ class ActionExecutor:
         # In headless Chromium, clicking a <select> doesn't render a visible
         # dropdown -- we must use select_option() directly.
         try:
-            selects = scope.locator('select:visible')
+            selects = scope.locator("select:visible")
             select_count = selects.count()
             if select_count > 0:
                 # Build keywords from target, excluding generic words
-                _SELECT_STOP_WORDS = frozenset({
-                    'select', 'dropdown', 'drop', 'down', 'option', 'choose',
-                    'pick', 'the', 'for', 'and', 'from', 'with', 'input',
-                    'field', 'menu', 'list',
-                })
+                select_stop_words = frozenset(
+                    {
+                        "select",
+                        "dropdown",
+                        "drop",
+                        "down",
+                        "option",
+                        "choose",
+                        "pick",
+                        "the",
+                        "for",
+                        "and",
+                        "from",
+                        "with",
+                        "input",
+                        "field",
+                        "menu",
+                        "list",
+                    }
+                )
                 target_words = [
-                    w.lower()
-                    for w in re.findall(r'\b\w{3,}\b', target_text)
-                    if w.lower() not in _SELECT_STOP_WORDS
+                    w.lower() for w in re.findall(r"\b\w{3,}\b", target_text) if w.lower() not in select_stop_words
                 ]
                 if target_words:
                     for i in range(select_count):
                         sel = selects.nth(i)
-                        sel_id = (sel.get_attribute('id') or '').lower()
-                        sel_name = (sel.get_attribute('name') or '').lower()
-                        sel_aria = (sel.get_attribute('aria-label') or '').lower()
+                        sel_id = (sel.get_attribute("id") or "").lower()
+                        sel_name = (sel.get_attribute("name") or "").lower()
+                        sel_aria = (sel.get_attribute("aria-label") or "").lower()
                         # Find associated <label> text via the for= attribute
-                        label_text = ''
+                        label_text = ""
                         if sel_id:
                             try:
                                 label_loc = scope.locator(f'label[for="{sel_id}"]')
@@ -1277,7 +1357,7 @@ class ActionExecutor:
         # 4. Extract label-like prefix: "Project Name input field..." -> "Project Name"
         #    Uses .+? (any char, lazy) so labels with special chars like ($) are captured.
         label_match = re.match(
-            r'^(.+?)\s+(?:input|field|text\s*(?:box|area|field)|box|area|textarea|select|dropdown)\b',
+            r"^(.+?)\s+(?:input|field|text\s*(?:box|area|field)|box|area|textarea|select|dropdown)\b",
             target_text,
             re.I,
         )
@@ -1306,11 +1386,11 @@ class ActionExecutor:
                 focused_tag = focused_info.get("tag", "") if isinstance(focused_info, dict) else ""
                 focused_type = focused_info.get("type", "") if isinstance(focused_info, dict) else ""
                 if focused_tag == "select":
-                    focused_el = self._page.locator(':focus').first
+                    focused_el = self._page.locator(":focus").first
                     self._select_option_fuzzy(focused_el, value)
                     return
                 if focused_tag == "input" and focused_type == "date":
-                    focused_el = self._page.locator(':focus').first
+                    focused_el = self._page.locator(":focus").first
                     iso_value = self._normalize_date_value(value)
                     self._fill_date_input(focused_el, iso_value)
                     return
@@ -1339,23 +1419,38 @@ class ActionExecutor:
         # 7. Last resort: keyword scan over all visible inputs / textareas / selects.
         # Build a set of meaningful keywords from the target description, ignoring
         # generic field-related words that would match almost anything.
-        _STOP_WORDS = frozenset({
-            'input', 'field', 'text', 'with', 'the', 'for', 'and', 'placeholder',
-            'area', 'textarea', 'box', 'label', 'enter', 'type', 'value',
-            'select', 'dropdown', 'option', 'choose', 'showing',
-        })
-        keywords = [
-            w.lower()
-            for w in re.findall(r'\b\w{3,}\b', target_text)
-            if w.lower() not in _STOP_WORDS
-        ]
+        stop_words = frozenset(
+            {
+                "input",
+                "field",
+                "text",
+                "with",
+                "the",
+                "for",
+                "and",
+                "placeholder",
+                "area",
+                "textarea",
+                "box",
+                "label",
+                "enter",
+                "type",
+                "value",
+                "select",
+                "dropdown",
+                "option",
+                "choose",
+                "showing",
+            }
+        )
+        keywords = [w.lower() for w in re.findall(r"\b\w{3,}\b", target_text) if w.lower() not in stop_words]
         if keywords:
-            inputs = scope.locator('input:visible, textarea:visible, select:visible')
+            inputs = scope.locator("input:visible, textarea:visible, select:visible")
             for i in range(inputs.count()):
                 inp = inputs.nth(i)
-                placeholder = (inp.get_attribute('placeholder') or '').lower()
-                aria_label = (inp.get_attribute('aria-label') or '').lower()
-                name = (inp.get_attribute('name') or '').lower()
+                placeholder = (inp.get_attribute("placeholder") or "").lower()
+                aria_label = (inp.get_attribute("aria-label") or "").lower()
+                name = (inp.get_attribute("name") or "").lower()
                 combined = f"{placeholder} {aria_label} {name}"
                 for kw in keywords:
                     if kw in combined:
@@ -1375,11 +1470,11 @@ class ActionExecutor:
         url = url.strip()
 
         # Reject coordinate-like targets (e.g., "195,420", "0.584,0.672")
-        if re.match(r'^[\d.,\s]+$', url):
+        if re.match(r"^[\d.,\s]+$", url):
             raise ValueError(f"Navigate target looks like coordinates, not a URL: {url}")
 
         # Reject descriptive text that isn't a URL (no path separators, no domain)
-        if not any(c in url for c in ('/', '.')) and not url.startswith(('http', '/')):
+        if not any(c in url for c in ("/", ".")) and not url.startswith(("http", "/")):
             raise ValueError(f"Navigate target doesn't look like a URL: {url}")
 
         if not url.startswith(("http://", "https://")):
@@ -1509,12 +1604,12 @@ class ActionExecutor:
 
         # Pattern 3: Bare "NNN, NNN" -- only if the text is short and coordinate-like
         # Skip if text contains words that indicate non-coordinate context
-        _FALSE_POSITIVE_WORDS = re.compile(
+        false_positive_words = re.compile(
             r"\b(row|column|col|page|item|step|action|version|section|"
             r"line|index|count|total|number|num|size|width|height)\b",
             re.I,
         )
-        if len(text) < 60 and not _FALSE_POSITIVE_WORDS.search(text):
+        if len(text) < 60 and not false_positive_words.search(text):
             m = re.search(
                 r"(\d{2,4}(?:\.\d+)?)\s*,\s*(\d{2,4}(?:\.\d+)?)",
                 text,

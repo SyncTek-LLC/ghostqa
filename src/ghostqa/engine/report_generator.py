@@ -8,7 +8,6 @@ breakdown.
 from __future__ import annotations
 
 import dataclasses
-import datetime as dt
 from typing import Any
 
 
@@ -126,10 +125,7 @@ class ReportGenerator:
             notes = step.error or step.notes or ""
             if len(notes) > 80:
                 notes = notes[:77] + "..."
-            lines.append(
-                f"| {step.step_id} | {step.mode} | {result_str} | "
-                f"{step.duration_seconds:.1f}s | {notes} |"
-            )
+            lines.append(f"| {step.step_id} | {step.mode} | {result_str} | {step.duration_seconds:.1f}s | {notes} |")
         return "\n".join(lines)
 
     def _ux_observations(self, r: RunResult) -> str:
@@ -157,9 +153,7 @@ class ReportGenerator:
             if len(desc) > 80:
                 desc = desc[:77] + "..."
             evidence = f.evidence if f.evidence else "-"
-            lines.append(
-                f"| {f.severity} | {f.category} | {desc} | {f.step_id} | {evidence} |"
-            )
+            lines.append(f"| {f.severity} | {f.category} | {desc} | {f.step_id} | {evidence} |")
         return "\n".join(lines)
 
     def _screenshots_section(self, r: RunResult) -> str:

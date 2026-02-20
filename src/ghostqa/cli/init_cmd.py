@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -177,8 +176,7 @@ def init(
     if project_dir.exists() and not force:
         console.print(
             Panel(
-                f"[yellow]Directory already exists:[/yellow] {project_dir}\n\n"
-                "Use [bold]--force[/bold] to overwrite.",
+                f"[yellow]Directory already exists:[/yellow] {project_dir}\n\nUse [bold]--force[/bold] to overwrite.",
                 title="Already Initialized",
                 border_style="yellow",
             )

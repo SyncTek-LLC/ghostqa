@@ -12,12 +12,11 @@ from __future__ import annotations
 import base64
 import dataclasses
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Any
 
-from ghostqa.engine.action_executor import ActionExecutor, PersonaDecision
+from ghostqa.engine.action_executor import ActionExecutor
 from ghostqa.engine.cost_tracker import BudgetExceededError, CostTracker
 from ghostqa.engine.persona_agent import AgentStuckError, PersonaAgent
 from ghostqa.engine.report_generator import Finding, StepReport
@@ -182,8 +181,12 @@ class BrowserRunner:
 
         logger.info(
             "Browser step %s: viewport=%s (%dx%d), max_actions=%d, goal=%s",
-            step_id, viewport_name, viewport_size[0], viewport_size[1],
-            max_actions, goal[:80],
+            step_id,
+            viewport_name,
+            viewport_size[0],
+            viewport_size[1],
+            max_actions,
+            goal[:80],
         )
 
         screenshots: list[str] = []
@@ -220,13 +223,15 @@ class BrowserRunner:
             except Exception as exc:
                 error_msg = f"Failed to navigate to {full_url}: {exc}"
                 logger.error(error_msg)
-                findings.append(Finding(
-                    severity="block",
-                    category="server_error",
-                    description=error_msg,
-                    evidence="",
-                    step_id=step_id,
-                ))
+                findings.append(
+                    Finding(
+                        severity="block",
+                        category="server_error",
+                        description=error_msg,
+                        evidence="",
+                        step_id=step_id,
+                    )
+                )
                 return BrowserStepResult(
                     step_id=step_id,
                     passed=False,
@@ -265,32 +270,29 @@ class BrowserRunner:
         _consecutive_no_progress = 0  # actions without visible page change (screenshot-based)
         _consecutive_no_change = 0  # actions where page_changed=False (DOM-based, faster)
         _consecutive_local_failures = 0  # consecutive failed local model actions
-        _local_model_disabled = True  # Always use API for browser steps -- local models can't interpret web UIs reliably
-        MAX_NO_PROGRESS = 5  # force API escalation after this many
-        MAX_NO_CHANGE = 5  # abort after this many DOM-verified no-change actions
-        MAX_REPEATS = 3  # same action+target repeated this many times = stuck
+        _local_model_disabled = True  # Always use API -- local models can't interpret web UIs reliably
+        max_no_progress = 5  # force API escalation after this many
+        max_no_change = 5  # abort after this many DOM-verified no-change actions
+        max_repeats = 3  # same action+target repeated this many times = stuck
 
         action_idx = 0
         while action_idx < max_actions:
             elapsed = time.monotonic() - start_time
             if elapsed > max_duration:
-                error_msg = (
-                    f"Browser step timed out after {elapsed:.0f}s "
-                    f"(limit: {max_duration}s)"
+                error_msg = f"Browser step timed out after {elapsed:.0f}s (limit: {max_duration}s)"
+                findings.append(
+                    Finding(
+                        severity="high",
+                        category="performance",
+                        description=error_msg,
+                        evidence="",
+                        step_id=step_id,
+                    )
                 )
-                findings.append(Finding(
-                    severity="high",
-                    category="performance",
-                    description=error_msg,
-                    evidence="",
-                    step_id=step_id,
-                ))
                 break
 
             # 1. Take screenshot
-            screenshot_b64, screenshot_path = self._take_screenshot(
-                page, step_id, action_idx, "before"
-            )
+            screenshot_b64, screenshot_path = self._take_screenshot(page, step_id, action_idx, "before")
             screenshots.append(screenshot_path)
 
             # Track screenshot for stuck detection
@@ -303,10 +305,10 @@ class BrowserRunner:
             if len(_recent_screenshot_hashes) > 10:
                 _recent_screenshot_hashes.pop(0)
 
-            # Stuck detection: if no progress for MAX_NO_PROGRESS actions, force API
+            # Stuck detection: if no progress for max_no_progress actions, force API
             force_api = _local_model_disabled  # Persist local model disable across actions
             stuck_context = None
-            if _consecutive_no_progress >= MAX_NO_PROGRESS or _consecutive_no_change >= 3:
+            if _consecutive_no_progress >= max_no_progress or _consecutive_no_change >= 3:
                 force_api = True
                 no_progress_count = max(_consecutive_no_progress, _consecutive_no_change)
                 stuck_context = (
@@ -318,41 +320,42 @@ class BrowserRunner:
                     "If nothing works, report 'stuck' so we can move on."
                 )
                 logger.warning(
-                    "Browser step %s: no progress for %d actions "
-                    "(screenshot=%d, DOM=%d), forcing API escalation",
-                    step_id, no_progress_count,
-                    _consecutive_no_progress, _consecutive_no_change,
+                    "Browser step %s: no progress for %d actions (screenshot=%d, DOM=%d), forcing API escalation",
+                    step_id,
+                    no_progress_count,
+                    _consecutive_no_progress,
+                    _consecutive_no_change,
                 )
 
             # Repetition detection: same action+target 3x = stuck
-            if not force_api and len(_recent_actions) >= MAX_REPEATS:
-                last_n = _recent_actions[-MAX_REPEATS:]
+            if not force_api and len(_recent_actions) >= max_repeats:
+                last_n = _recent_actions[-max_repeats:]
                 if len(set(last_n)) == 1:
                     force_api = True
                     stuck_context = (
                         f"WARNING: You have repeated the exact same action "
-                        f"'{last_n[0][0]}' on '{last_n[0][1]}' {MAX_REPEATS} times. "
+                        f"'{last_n[0][0]}' on '{last_n[0][1]}' {max_repeats} times. "
                         "This is not working. Try something COMPLETELY DIFFERENT. "
                         "Look at the screen carefully and find an alternative path."
                     )
                     logger.warning(
                         "Browser step %s: action repeated %dx, forcing API escalation",
-                        step_id, MAX_REPEATS,
+                        step_id,
+                        max_repeats,
                     )
 
             # Hard stuck: if no progress for 2x the limit, give up on this step
-            if _consecutive_no_progress >= MAX_NO_PROGRESS * 2:
-                error_msg = (
-                    f"Agent stuck: no page change for {_consecutive_no_progress} "
-                    f"consecutive actions"
+            if _consecutive_no_progress >= max_no_progress * 2:
+                error_msg = f"Agent stuck: no page change for {_consecutive_no_progress} consecutive actions"
+                findings.append(
+                    Finding(
+                        severity="critical",
+                        category="ux",
+                        description=f"agent_stuck: {error_msg}",
+                        evidence=screenshot_path,
+                        step_id=step_id,
+                    )
                 )
-                findings.append(Finding(
-                    severity="critical",
-                    category="ux",
-                    description=f"agent_stuck: {error_msg}",
-                    evidence=screenshot_path,
-                    step_id=step_id,
-                ))
                 logger.error("Browser step %s: hard stuck, aborting step", step_id)
                 break
 
@@ -368,81 +371,92 @@ class BrowserRunner:
                 )
             except AgentStuckError as exc:
                 error_msg = str(exc)
-                findings.append(Finding(
-                    severity="critical",
-                    category="ux",
-                    description=f"agent_stuck: {error_msg}",
-                    evidence=screenshot_path,
-                    step_id=step_id,
-                ))
+                findings.append(
+                    Finding(
+                        severity="critical",
+                        category="ux",
+                        description=f"agent_stuck: {error_msg}",
+                        evidence=screenshot_path,
+                        step_id=step_id,
+                    )
+                )
                 break
             except BudgetExceededError as exc:
                 error_msg = str(exc)
-                findings.append(Finding(
-                    severity="block",
-                    category="performance",
-                    description=f"Budget exceeded: {error_msg}",
-                    evidence="",
-                    step_id=step_id,
-                ))
+                findings.append(
+                    Finding(
+                        severity="block",
+                        category="performance",
+                        description=f"Budget exceeded: {error_msg}",
+                        evidence="",
+                        step_id=step_id,
+                    )
+                )
                 break
 
             # Record UX observations
             if decision.ux_notes:
                 ux_observations.append(decision.ux_notes)
-                findings.append(Finding(
-                    severity="medium",
-                    category="ux",
-                    description=f"ux_confusion: {decision.ux_notes}",
-                    evidence=screenshot_path,
-                    step_id=step_id,
-                ))
+                findings.append(
+                    Finding(
+                        severity="medium",
+                        category="ux",
+                        description=f"ux_confusion: {decision.ux_notes}",
+                        evidence=screenshot_path,
+                        step_id=step_id,
+                    )
+                )
 
             # Record checkpoint
             if decision.checkpoint and decision.checkpoint not in checkpoints_reached:
                 checkpoints_reached.append(decision.checkpoint)
                 logger.info(
                     "Browser step %s: checkpoint reached: %s",
-                    step_id, decision.checkpoint,
+                    step_id,
+                    decision.checkpoint,
                 )
                 # Take a checkpoint screenshot
-                _, cp_path = self._take_screenshot(
-                    page, step_id, action_idx, f"checkpoint-{decision.checkpoint}"
-                )
+                _, cp_path = self._take_screenshot(page, step_id, action_idx, f"checkpoint-{decision.checkpoint}")
                 screenshots.append(cp_path)
 
                 # Validate checkpoint assertions
                 self._validate_checkpoint(
-                    page, decision.checkpoint, checkpoints,
-                    step_id, findings, cp_path,
+                    page,
+                    decision.checkpoint,
+                    checkpoints,
+                    step_id,
+                    findings,
+                    cp_path,
                 )
 
             # Check if goal achieved
             if decision.goal_achieved or decision.action == "done":
                 goal_achieved = True
-                actions_taken.append({
-                    "index": action_idx,
-                    "action": decision.action,
-                    "target": decision.target,
-                    "observation": decision.observation,
-                    "reasoning": decision.reasoning,
-                })
-                # Take final screenshot
-                _, final_path = self._take_screenshot(
-                    page, step_id, action_idx, "goal-achieved"
+                actions_taken.append(
+                    {
+                        "index": action_idx,
+                        "action": decision.action,
+                        "target": decision.target,
+                        "observation": decision.observation,
+                        "reasoning": decision.reasoning,
+                    }
                 )
+                # Take final screenshot
+                _, final_path = self._take_screenshot(page, step_id, action_idx, "goal-achieved")
                 screenshots.append(final_path)
                 break
 
             # Check if stuck (but not yet at MAX_CONSECUTIVE_STUCK)
             if decision.action == "stuck":
-                actions_taken.append({
-                    "index": action_idx,
-                    "action": "stuck",
-                    "target": "",
-                    "observation": decision.observation,
-                    "reasoning": decision.reasoning,
-                })
+                actions_taken.append(
+                    {
+                        "index": action_idx,
+                        "action": "stuck",
+                        "target": "",
+                        "observation": decision.observation,
+                        "reasoning": decision.reasoning,
+                    }
+                )
                 action_idx += 1
                 continue
 
@@ -474,37 +488,43 @@ class BrowserRunner:
             else:
                 _consecutive_no_change = 0
 
-            if _consecutive_no_change >= MAX_NO_CHANGE:
+            if _consecutive_no_change >= max_no_change:
                 error_msg = (
-                    f"Agent stuck: {_consecutive_no_change} consecutive "
-                    f"actions with no page effect (DOM-verified)"
+                    f"Agent stuck: {_consecutive_no_change} consecutive actions with no page effect (DOM-verified)"
                 )
-                findings.append(Finding(
-                    severity="critical",
-                    category="ux",
-                    description=f"agent_stuck: {error_msg}",
-                    evidence=screenshot_path,
-                    step_id=step_id,
-                ))
+                findings.append(
+                    Finding(
+                        severity="critical",
+                        category="ux",
+                        description=f"agent_stuck: {error_msg}",
+                        evidence=screenshot_path,
+                        step_id=step_id,
+                    )
+                )
                 logger.error(
                     "Browser step %s: %d actions with no DOM change, aborting",
-                    step_id, _consecutive_no_change,
+                    step_id,
+                    _consecutive_no_change,
                 )
                 break
 
             if not action_result.success:
                 logger.warning(
                     "Browser step %s action %d failed: %s",
-                    step_id, action_idx, action_result.error,
+                    step_id,
+                    action_idx,
+                    action_result.error,
                 )
-                findings.append(Finding(
-                    severity="high",
-                    category="ux",
-                    description=f"element_not_found: Action '{decision.action}' "
-                                f"on '{decision.target}' failed: {action_result.error}",
-                    evidence=screenshot_path,
-                    step_id=step_id,
-                ))
+                findings.append(
+                    Finding(
+                        severity="high",
+                        category="ux",
+                        description=f"element_not_found: Action '{decision.action}' "
+                        f"on '{decision.target}' failed: {action_result.error}",
+                        evidence=screenshot_path,
+                        step_id=step_id,
+                    )
+                )
 
             # Track consecutive local model failures.
             # If force_api was False and use_local_model was True, the local
@@ -518,7 +538,8 @@ class BrowserRunner:
                     logger.warning(
                         "Browser step %s: local model failed %d+ times "
                         "consecutively, forcing API for remainder of step",
-                        step_id, _consecutive_local_failures,
+                        step_id,
+                        _consecutive_local_failures,
                     )
             elif action_result.success:
                 # Only reset on success -- don't reset on API-path failures
@@ -541,13 +562,15 @@ class BrowserRunner:
         # End of loop -- check if we ran out of actions
         if not goal_achieved and error_msg is None:
             error_msg = f"Max actions ({max_actions}) reached without achieving goal"
-            findings.append(Finding(
-                severity="critical",
-                category="behavior",
-                description=f"goal_not_achieved: {error_msg}",
-                evidence=screenshots[-1] if screenshots else "",
-                step_id=step_id,
-            ))
+            findings.append(
+                Finding(
+                    severity="critical",
+                    category="behavior",
+                    description=f"goal_not_achieved: {error_msg}",
+                    evidence=screenshots[-1] if screenshots else "",
+                    step_id=step_id,
+                )
+            )
 
         duration = round(time.monotonic() - start_time, 2)
         passed = goal_achieved and error_msg is None
@@ -579,8 +602,7 @@ class BrowserRunner:
             passed=result.passed,
             duration_seconds=result.duration_seconds,
             error=result.error,
-            notes=f"{result.action_count} actions, "
-                  f"{'goal achieved' if result.goal_achieved else 'goal NOT achieved'}",
+            notes=f"{result.action_count} actions, {'goal achieved' if result.goal_achieved else 'goal NOT achieved'}",
             action_count=result.action_count,
             screenshots=result.screenshots,
             ux_observations=result.ux_observations,
@@ -645,11 +667,13 @@ class BrowserRunner:
 
         # Also inject any cookies from the API runner's session
         for name, value in self._api_cookies.items():
-            cookies.append({
-                "name": name,
-                "value": value,
-                "url": self._frontend_url,
-            })
+            cookies.append(
+                {
+                    "name": name,
+                    "value": value,
+                    "url": self._frontend_url,
+                }
+            )
 
         # Filter out any cookies with empty name or value -- Playwright rejects them
         return [c for c in cookies if c.get("name") and c.get("value")]
@@ -711,26 +735,28 @@ class BrowserRunner:
                 try:
                     locator = page.get_by_text(assert_text, exact=False)
                     if locator.count() == 0:
-                        findings.append(Finding(
+                        findings.append(
+                            Finding(
+                                severity="high",
+                                category="behavior",
+                                description=(
+                                    f"Checkpoint '{checkpoint_name}' assertion failed: "
+                                    f"text '{assert_text}' not found on page"
+                                ),
+                                evidence=screenshot_path,
+                                step_id=step_id,
+                            )
+                        )
+                except Exception as exc:
+                    findings.append(
+                        Finding(
                             severity="high",
                             category="behavior",
-                            description=(
-                                f"Checkpoint '{checkpoint_name}' assertion failed: "
-                                f"text '{assert_text}' not found on page"
-                            ),
+                            description=(f"Checkpoint '{checkpoint_name}' assertion error: {exc}"),
                             evidence=screenshot_path,
                             step_id=step_id,
-                        ))
-                except Exception as exc:
-                    findings.append(Finding(
-                        severity="high",
-                        category="behavior",
-                        description=(
-                            f"Checkpoint '{checkpoint_name}' assertion error: {exc}"
-                        ),
-                        evidence=screenshot_path,
-                        step_id=step_id,
-                    ))
+                        )
+                    )
 
             # Performance assertions
             perf = cp.get("performance", {})
@@ -743,15 +769,17 @@ class BrowserRunner:
                         "return e ? e.loadEventEnd - e.startTime : null; }"
                     )
                     if timing is not None and timing > max_ms:
-                        findings.append(Finding(
-                            severity="high",
-                            category="performance",
-                            description=(
-                                f"performance exceeded: Page load {timing:.0f}ms > "
-                                f"{max_ms}ms target at checkpoint '{checkpoint_name}'"
-                            ),
-                            evidence=screenshot_path,
-                            step_id=step_id,
-                        ))
+                        findings.append(
+                            Finding(
+                                severity="high",
+                                category="performance",
+                                description=(
+                                    f"performance exceeded: Page load {timing:.0f}ms > "
+                                    f"{max_ms}ms target at checkpoint '{checkpoint_name}'"
+                                ),
+                                evidence=screenshot_path,
+                                step_id=step_id,
+                            )
+                        )
                 except Exception:
                     pass  # Performance API may not be available

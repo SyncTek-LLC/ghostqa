@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import webbrowser
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -90,10 +89,7 @@ def _find_run_dir(evidence_dir: Path, run_id: str | None) -> Path | None:
             return candidate
 
         # Partial match (prefix)
-        matches = [
-            d for d in evidence_dir.iterdir()
-            if d.is_dir() and d.name.startswith(run_id)
-        ]
+        matches = [d for d in evidence_dir.iterdir() if d.is_dir() and d.name.startswith(run_id)]
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
@@ -110,7 +106,7 @@ def _find_run_dir(evidence_dir: Path, run_id: str | None) -> Path | None:
 
 
 def report(
-    run_id: Optional[str] = typer.Argument(
+    run_id: str | None = typer.Argument(
         None,
         help="Run ID to display (default: latest run). Supports prefix matching.",
     ),
@@ -131,7 +127,7 @@ def report(
         "--open",
         help="Open the report in the default browser.",
     ),
-    evidence_dir: Optional[Path] = typer.Option(
+    evidence_dir: Path | None = typer.Option(
         None,
         "--evidence-dir",
         help="Path to evidence directory. Default: .ghostqa/evidence/",

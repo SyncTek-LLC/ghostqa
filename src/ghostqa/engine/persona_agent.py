@@ -12,15 +12,13 @@ Supports tiered model routing:
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
-from pathlib import Path
 from typing import Any
 
 from ghostqa.engine.action_executor import PersonaDecision
 from ghostqa.engine.cost_tracker import CostTracker
-from ghostqa.models import MODELS, PRICING
+from ghostqa.models import MODELS
 
 logger = logging.getLogger("ghostqa.engine.persona_agent")
 
@@ -114,8 +112,7 @@ class PersonaAgent:
             "",
             f"Tech comfort: {demographics.get('tech_comfort', 'moderate')}",
             f"Patience: {demographics.get('patience', 'medium')}",
-            f"You are using a {self._viewport_name} device "
-            f"({self._viewport_size[0]}x{self._viewport_size[1]}).",
+            f"You are using a {self._viewport_name} device ({self._viewport_size[0]}x{self._viewport_size[1]}).",
         ]
 
         # Add behavior modifiers
@@ -128,28 +125,32 @@ class PersonaAgent:
         if behavior.get("questions_everything"):
             lines.append("You question every UI choice and note confusion points.")
 
-        lines.extend([
-            "",
-            "IMPORTANT INSTRUCTIONS:",
-            "- Look at the screenshot carefully and decide what to do next.",
-            "- For click actions, provide approximate x,y pixel coordinates of the target element.",
-            "- For fill actions, describe which input field to target (label, placeholder text).",
-            "- Report any UX confusion, unclear labels, or accessibility issues in ux_notes.",
-            "- Set checkpoint to the name of a checkpoint if you've just reached that state.",
-            "- Set goal_achieved to true ONLY when you're confident the goal is complete.",
-            "- If you genuinely cannot figure out how to proceed, set action to 'stuck'.",
-            "",
-            "CRITICAL: When clicking, your \"target\" field MUST include the visible text of the button/link/element.",
-            "Examples:",
-            "  - target: \"Create account\"",
-            "  - target: \"Continue to Brief\"",
-            "  - target: \"Next\"",
-            "  - target: \"Ground-Up Construction card\"",
-            "Do NOT use coordinates alone as your target. Include the text label so the system can find it reliably.",
-            "If you must include coordinates, put them AFTER the text: \"Create account at 362, 855\"",
-            "",
-            f"Respond with ONLY valid JSON matching this schema:\n{RESPONSE_SCHEMA}",
-        ])
+        lines.extend(
+            [
+                "",
+                "IMPORTANT INSTRUCTIONS:",
+                "- Look at the screenshot carefully and decide what to do next.",
+                "- For click actions, provide approximate x,y pixel coordinates of the target element.",
+                "- For fill actions, describe which input field to target (label, placeholder text).",
+                "- Report any UX confusion, unclear labels, or accessibility issues in ux_notes.",
+                "- Set checkpoint to the name of a checkpoint if you've just reached that state.",
+                "- Set goal_achieved to true ONLY when you're confident the goal is complete.",
+                "- If you genuinely cannot figure out how to proceed, set action to 'stuck'.",
+                "",
+                'CRITICAL: When clicking, your "target" field MUST include '
+                "the visible text of the button/link/element.",
+                "Examples:",
+                '  - target: "Create account"',
+                '  - target: "Continue to Brief"',
+                '  - target: "Next"',
+                '  - target: "Ground-Up Construction card"',
+                "Do NOT use coordinates alone as your target. "
+                "Include the text label so the system can find it reliably.",
+                'If you must include coordinates, put them AFTER the text: "Create account at 362, 855"',
+                "",
+                f"Respond with ONLY valid JSON matching this schema:\n{RESPONSE_SCHEMA}",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -157,6 +158,7 @@ class PersonaAgent:
         """Return the cached Anthropic client, creating it lazily on first use."""
         if self._client is None:
             import anthropic
+
             # Use the API key passed to the constructor, or let the SDK
             # resolve from ANTHROPIC_API_KEY env var.
             kwargs: dict[str, Any] = {"max_retries": 5, "timeout": 60.0}
@@ -187,31 +189,39 @@ class PersonaAgent:
 
     def _call_ollama(self, screenshot_base64: str, goal: str) -> str | None:
         """Call local Ollama vision model. Returns raw JSON text or None on failure."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
-        payload = json.dumps({
-            "model": "llava:13b",
-            "messages": [{
-                "role": "system",
-                "content": self._system_prompt,
-            }, {
-                "role": "user",
-                "content": (
-                    f"Your current goal: {goal}\n\n"
-                    f"Action #{self._action_count}. "
-                    f"Look at the screenshot and decide your next action.\n\n"
-                    f"You MUST respond with ONLY a JSON object. No explanation, no markdown, no text before or after.\n"
-                    f"Example: {{\"observation\":\"I see a button\",\"action\":\"click\",\"target\":\"195,420\",\"value\":\"\",\"reasoning\":\"clicking the button\",\"ux_notes\":null,\"checkpoint\":null,\"goal_achieved\":false}}"
-                ),
-                "images": [screenshot_base64],
-            }],
-            "stream": False,
-            "options": {
-                "temperature": 0.1,
-                "num_predict": 512,
-            },
-        }).encode()
+        payload = json.dumps(
+            {
+                "model": "llava:13b",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": self._system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Your current goal: {goal}\n\n"
+                            f"Action #{self._action_count}. "
+                            f"Look at the screenshot and decide your next action.\n\n"
+                            f"You MUST respond with ONLY a JSON object. "
+                            f"No explanation, no markdown, no text before or after.\n"
+                            f'Example: {{"observation":"I see a button","action":"click",'
+                            f'"target":"195,420","value":"","reasoning":"clicking the button",'
+                            f'"ux_notes":null,"checkpoint":null,"goal_achieved":false}}'
+                        ),
+                        "images": [screenshot_base64],
+                    },
+                ],
+                "stream": False,
+                "options": {
+                    "temperature": 0.1,
+                    "num_predict": 512,
+                },
+            }
+        ).encode()
 
         req = urllib.request.Request(
             "http://localhost:11434/api/chat",
@@ -274,12 +284,8 @@ class PersonaAgent:
                     assistant_text = assistant_msg.get("content", "")
                     if isinstance(assistant_text, str):
                         try:
-                            parsed = json.loads(
-                                assistant_text.strip().strip("`").lstrip("json\n")
-                            )
-                            observation_summary = parsed.get(
-                                "observation", observation_summary
-                            )
+                            parsed = json.loads(assistant_text.strip().strip("`").lstrip("json\n"))
+                            observation_summary = parsed.get("observation", observation_summary)
                         except (json.JSONDecodeError, AttributeError):
                             # Use a truncated version of the raw text as fallback
                             observation_summary = assistant_text[:120]
@@ -306,13 +312,12 @@ class PersonaAgent:
                     and isinstance(block.get("source"), dict)
                     and block["source"].get("type") == "base64"
                 ):
-                    new_content.append({
-                        "type": "text",
-                        "text": (
-                            f"[Screenshot from action {action_num} -- "
-                            f"{observation_summary}]"
-                        ),
-                    })
+                    new_content.append(
+                        {
+                            "type": "text",
+                            "text": (f"[Screenshot from action {action_num} -- {observation_summary}]"),
+                        }
+                    )
                 else:
                     new_content.append(block)
 
@@ -357,9 +362,7 @@ class PersonaAgent:
         checkpoint_text = ""
         if checkpoints:
             cp_names = [cp.get("after", "") for cp in checkpoints]
-            checkpoint_text = (
-                f"\n\nAvailable checkpoints to report: {', '.join(cp_names)}"
-            )
+            checkpoint_text = f"\n\nAvailable checkpoints to report: {', '.join(cp_names)}"
 
         user_content: list[dict[str, Any]] = [
             {
@@ -424,9 +427,7 @@ class PersonaAgent:
                     )
 
                     # Add to conversation history for context continuity
-                    self._conversation_history.append(
-                        {"role": "assistant", "content": ollama_result}
-                    )
+                    self._conversation_history.append({"role": "assistant", "content": ollama_result})
 
                     # Track stuck state
                     if decision.action == "stuck":
@@ -466,7 +467,9 @@ class PersonaAgent:
             else:
                 reason = "local model disabled"
             logger.info(
-                "Using API for action %d (%s)", self._action_count, reason,
+                "Using API for action %d (%s)",
+                self._action_count,
+                reason,
             )
 
         # -- Anthropic API path -----------------------------------------------
@@ -505,7 +508,11 @@ class PersonaAgent:
                 action="wait",
                 target="",
                 value="",
-                reasoning=f"Anthropic API call failed (attempt {self._consecutive_api_failures}/{MAX_CONSECUTIVE_API_FAILURES}). Retrying...",
+                reasoning=(
+                    f"Anthropic API call failed "
+                    f"(attempt {self._consecutive_api_failures}/{MAX_CONSECUTIVE_API_FAILURES}). "
+                    f"Retrying..."
+                ),
                 ux_notes=None,
                 checkpoint=None,
                 goal_achieved=False,
@@ -572,6 +579,7 @@ class PersonaAgent:
     def _try_extract_json(raw_text: str) -> str | None:
         """Try to extract a JSON object from text that may contain prose around it."""
         import re
+
         # Look for a JSON-like block in the response
         match = re.search(r'\{[^{}]*"action"\s*:\s*"[^"]+?"[^{}]*\}', raw_text, re.DOTALL)
         if match:

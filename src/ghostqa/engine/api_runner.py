@@ -15,7 +15,6 @@ from __future__ import annotations
 import dataclasses
 import logging
 import mimetypes
-import re
 import time
 from pathlib import Path
 from typing import Any
@@ -174,16 +173,20 @@ class APIRunner:
                     fixture_path = None
 
             if fixture_path is None or not fixture_path.is_file():
-                search_info = f"fixtures_dir={self._fixtures_dir}" if self._fixtures_dir else "no fixtures_dir configured"
+                search_info = (
+                    f"fixtures_dir={self._fixtures_dir}" if self._fixtures_dir else "no fixtures_dir configured"
+                )
                 error_msg = f"Fixture file not found: {fixture_rel} ({search_info})"
                 logger.error("API step %s: %s", step_id, error_msg)
-                findings.append(Finding(
-                    severity="block",
-                    category="server_error",
-                    description=error_msg,
-                    evidence="",
-                    step_id=step_id,
-                ))
+                findings.append(
+                    Finding(
+                        severity="block",
+                        category="server_error",
+                        description=error_msg,
+                        evidence="",
+                        step_id=step_id,
+                    )
+                )
                 return APIStepResult(
                     step_id=step_id,
                     passed=False,
@@ -206,7 +209,10 @@ class APIRunner:
             upload_data = extra_fields if extra_fields else None
             logger.info(
                 "API step %s: uploading %s as %s (%s), extra fields: %s",
-                step_id, fixture_path.name, field_name, mime_type,
+                step_id,
+                fixture_path.name,
+                field_name,
+                mime_type,
                 list((extra_fields or {}).keys()),
             )
 
@@ -262,13 +268,15 @@ class APIRunner:
             duration_ms = (time.monotonic() - start) * 1000
             error_msg = f"Request failed: {type(exc).__name__}: {exc}"
             logger.error("API step %s failed: %s", step_id, error_msg)
-            findings.append(Finding(
-                severity="block",
-                category="server_error",
-                description=error_msg,
-                evidence="",
-                step_id=step_id,
-            ))
+            findings.append(
+                Finding(
+                    severity="block",
+                    category="server_error",
+                    description=error_msg,
+                    evidence="",
+                    step_id=step_id,
+                )
+            )
             return APIStepResult(
                 step_id=step_id,
                 passed=False,
@@ -324,9 +332,7 @@ class APIRunner:
                     timeout=30,
                 )
                 if login_resp.status_code == 200:
-                    logger.info(
-                        "Login succeeded as fallback for rate-limited signup"
-                    )
+                    logger.info("Login succeeded as fallback for rate-limited signup")
                     # Replace response data so captures (auth_cookie, user_id, etc.)
                     # come from the successful login response.
                     response = login_resp
@@ -335,14 +341,9 @@ class APIRunner:
                     except (ValueError, TypeError):
                         response_body = login_resp.text
                     response_headers = dict(login_resp.headers)
-                    signup_fallback_note = (
-                        f"Signup returned {original_status}; "
-                        f"fell back to login successfully"
-                    )
+                    signup_fallback_note = f"Signup returned {original_status}; fell back to login successfully"
                 else:
-                    logger.warning(
-                        "Login fallback also failed: %d", login_resp.status_code
-                    )
+                    logger.warning("Login fallback also failed: %d", login_resp.status_code)
             except requests.RequestException as exc:
                 logger.warning("Login fallback request failed: %s", exc)
 
@@ -365,13 +366,15 @@ class APIRunner:
             msg = f"Expected status {expected_status}, got {response.status_code}"
             error_parts.append(msg)
             severity = "block" if response.status_code >= 500 else "high"
-            findings.append(Finding(
-                severity=severity,
-                category="server_error" if response.status_code >= 500 else "api_contract",
-                description=msg,
-                evidence=f"Response: {str(response_body)[:200]}",
-                step_id=step_id,
-            ))
+            findings.append(
+                Finding(
+                    severity=severity,
+                    category="server_error" if response.status_code >= 500 else "api_contract",
+                    description=msg,
+                    evidence=f"Response: {str(response_body)[:200]}",
+                    step_id=step_id,
+                )
+            )
 
         # Body assertions
         body_checks = expect.get("body_contains", [])
@@ -384,13 +387,15 @@ class APIRunner:
                     passed = False
                     msg = f"Expected {check_path} to exist, but it does not"
                     error_parts.append(msg)
-                    findings.append(Finding(
-                        severity="high",
-                        category="api_contract",
-                        description=msg,
-                        evidence=f"Body: {str(response_body)[:200]}",
-                        step_id=step_id,
-                    ))
+                    findings.append(
+                        Finding(
+                            severity="high",
+                            category="api_contract",
+                            description=msg,
+                            evidence=f"Body: {str(response_body)[:200]}",
+                            step_id=step_id,
+                        )
+                    )
                 elif not check["exists"] and value is not None:
                     passed = False
                     msg = f"Expected {check_path} to not exist, but it does"
@@ -401,13 +406,15 @@ class APIRunner:
                     passed = False
                     msg = f"Expected {check_path} == {check['equals']!r}, got {value!r}"
                     error_parts.append(msg)
-                    findings.append(Finding(
-                        severity="high",
-                        category="api_contract",
-                        description=msg,
-                        evidence=f"Body: {str(response_body)[:200]}",
-                        step_id=step_id,
-                    ))
+                    findings.append(
+                        Finding(
+                            severity="high",
+                            category="api_contract",
+                            description=msg,
+                            evidence=f"Body: {str(response_body)[:200]}",
+                            step_id=step_id,
+                        )
+                    )
 
             if "gte" in check:
                 try:
@@ -424,13 +431,15 @@ class APIRunner:
         perf = expect.get("performance", {})
         max_ms = perf.get("max_ms")
         if max_ms is not None and duration_ms > max_ms:
-            findings.append(Finding(
-                severity="high",
-                category="performance",
-                description=f"API call took {duration_ms:.0f}ms, exceeds {max_ms}ms target",
-                evidence=f"{method} {path}",
-                step_id=step_id,
-            ))
+            findings.append(
+                Finding(
+                    severity="high",
+                    category="performance",
+                    description=f"API call took {duration_ms:.0f}ms, exceeds {max_ms}ms target",
+                    evidence=f"{method} {path}",
+                    step_id=step_id,
+                )
+            )
 
         # Capture variables
         newly_captured: dict[str, Any] = {}
@@ -449,7 +458,9 @@ class APIRunner:
                 else:
                     logger.warning(
                         "Step %s: capture %s from %s resolved to None",
-                        step_id, var_name, source,
+                        step_id,
+                        var_name,
+                        source,
                     )
             else:
                 # Check headers
@@ -462,7 +473,11 @@ class APIRunner:
 
         logger.info(
             "API step %s: status=%s passed=%s duration=%.0fms captured=%s",
-            step_id, response.status_code, passed, duration_ms, list(newly_captured.keys()),
+            step_id,
+            response.status_code,
+            passed,
+            duration_ms,
+            list(newly_captured.keys()),
         )
 
         return APIStepResult(

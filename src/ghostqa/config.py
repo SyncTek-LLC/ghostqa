@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,7 @@ from ghostqa.models import DEFAULT_BUDGET_USD, DEFAULT_VIEWPORT, MODELS
 
 class GhostQAConfigError(Exception):
     """Raised when configuration is invalid or missing."""
+
     pass
 
 
@@ -55,10 +55,7 @@ class GhostQAConfig:
     def from_file(cls, config_path: Path) -> GhostQAConfig:
         """Load config from a YAML file."""
         if not config_path.exists():
-            raise GhostQAConfigError(
-                f"Config file not found: {config_path}\n\n"
-                "To fix: ghostqa init"
-            )
+            raise GhostQAConfigError(f"Config file not found: {config_path}\n\nTo fix: ghostqa init")
         with open(config_path) as f:
             data = yaml.safe_load(f) or {}
         return cls._from_dict(data, config_path.parent)

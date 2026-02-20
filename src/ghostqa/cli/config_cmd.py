@@ -6,7 +6,6 @@ Subcommands: show, set, set-key.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 import yaml
@@ -58,7 +57,7 @@ def _save_raw_config(project_dir: Path, data: dict) -> None:
 
 @config_app.command(name="show")
 def config_show(
-    dir: Optional[Path] = typer.Option(
+    dir: Path | None = typer.Option(
         None,
         "--dir",
         "-d",
@@ -81,9 +80,7 @@ def config_show(
             config = GhostQAConfig()
             config.project_dir = project_dir
     except GhostQAConfigError as exc:
-        console.print(
-            Panel(f"[red]{exc}[/red]", title="[red]Config Error[/red]", border_style="red")
-        )
+        console.print(Panel(f"[red]{exc}[/red]", title="[red]Config Error[/red]", border_style="red"))
         raise typer.Exit(code=2)
 
     # Resolve API key status
@@ -123,6 +120,7 @@ def config_show(
 def _identify_key_source(project_dir: Path) -> str:
     """Determine where the API key is coming from."""
     import os
+
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "env: ANTHROPIC_API_KEY"
 
@@ -157,7 +155,7 @@ def _identify_key_source(project_dir: Path) -> str:
 def config_set(
     key: str = typer.Argument(..., help="Configuration key to set."),
     value: str = typer.Argument(..., help="Value to set."),
-    dir: Optional[Path] = typer.Option(
+    dir: Path | None = typer.Option(
         None,
         "--dir",
         "-d",
@@ -199,7 +197,7 @@ def config_set(
 
 @config_app.command(name="set-key")
 def config_set_key(
-    dir: Optional[Path] = typer.Option(
+    dir: Path | None = typer.Option(
         None,
         "--dir",
         "-d",
@@ -238,11 +236,7 @@ def config_set_key(
     _save_raw_config(target_dir, data)
 
     config_path = target_dir / "config.yaml"
+    console.print(f"\n[green]API key saved[/green] ({mask_key(api_key)}) [dim]to {config_path}[/dim]")
     console.print(
-        f"\n[green]API key saved[/green] ({mask_key(api_key)}) "
-        f"[dim]to {config_path}[/dim]"
-    )
-    console.print(
-        "\n[dim]Tip: The ANTHROPIC_API_KEY environment variable takes priority "
-        "over config file values.[/dim]"
+        "\n[dim]Tip: The ANTHROPIC_API_KEY environment variable takes priority over config file values.[/dim]"
     )

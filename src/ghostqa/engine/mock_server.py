@@ -32,7 +32,7 @@ import json
 import logging
 import threading
 import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +47,7 @@ logger = logging.getLogger("ghostqa.engine.mock_server")
 # ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------
+
 
 class MockEndpoint:
     """Parsed endpoint from a contract YAML."""
@@ -80,19 +81,19 @@ class MockContract:
         # Parse endpoints
         self.endpoints: list[MockEndpoint] = []
         for ep_raw in svc.get("endpoints", []):
-            self.endpoints.append(MockEndpoint(
-                path=ep_raw.get("path", "/"),
-                method=ep_raw.get("method", "POST").upper(),
-                scenarios=ep_raw.get("scenarios", []),
-                default_response=ep_raw.get("default_response"),
-            ))
+            self.endpoints.append(
+                MockEndpoint(
+                    path=ep_raw.get("path", "/"),
+                    method=ep_raw.get("method", "POST").upper(),
+                    scenarios=ep_raw.get("scenarios", []),
+                    default_response=ep_raw.get("default_response"),
+                )
+            )
 
         # Health check
         hc = svc.get("health_check", {})
         self.health_path: str = hc.get("path", "/health")
-        self.health_response: dict[str, Any] = hc.get("response", {}).get(
-            "body", {"status": "ok", "mock": True}
-        )
+        self.health_response: dict[str, Any] = hc.get("response", {}).get("body", {"status": "ok", "mock": True})
 
         # Recording config
         rec = svc.get("recording", {})
@@ -103,6 +104,7 @@ class MockContract:
 # ---------------------------------------------------------------------------
 # Request handler
 # ---------------------------------------------------------------------------
+
 
 class MockRequestHandler(BaseHTTPRequestHandler):
     """HTTP handler that matches requests against a MockContract."""
@@ -172,11 +174,14 @@ class MockRequestHandler(BaseHTTPRequestHandler):
 
         # 3) If nothing matched at all, return 404
         if response_spec is None:
-            self._send_json(404, {
-                "error": "no_matching_mock",
-                "message": f"No mock scenario matched {method} {path}",
-                "mock": True,
-            })
+            self._send_json(
+                404,
+                {
+                    "error": "no_matching_mock",
+                    "message": f"No mock scenario matched {method} {path}",
+                    "mock": True,
+                },
+            )
             self._record(method, path, body_str, "_no_match", 404)
             return
 
@@ -192,7 +197,11 @@ class MockRequestHandler(BaseHTTPRequestHandler):
 
         logger.info(
             "Mock matched: %s %s -> scenario=%s status=%d latency=%dms",
-            method, path, matched_scenario_name, status, latency_ms,
+            method,
+            path,
+            matched_scenario_name,
+            status,
+            latency_ms,
         )
 
         # 6) Record
@@ -275,6 +284,7 @@ class MockRequestHandler(BaseHTTPRequestHandler):
 # MockServer -- public API
 # ---------------------------------------------------------------------------
 
+
 class MockServer:
     """Manages lifecycle of a mock HTTP server backed by a contract YAML.
 
@@ -297,20 +307,15 @@ class MockServer:
             base_dir: Project root -- used for resolving recording output dirs.
         """
         if yaml is None:
-            raise ImportError(
-                "PyYAML is required for MockServer. Install with: pip install pyyaml"
-            )
+            raise ImportError("PyYAML is required for MockServer. Install with: pip install pyyaml")
 
         self._base_dir = Path(base_dir)
-        abs_contract = (
-            contract_path if contract_path.is_absolute()
-            else self._base_dir / contract_path
-        )
+        abs_contract = contract_path if contract_path.is_absolute() else self._base_dir / contract_path
 
         if not abs_contract.exists():
             raise FileNotFoundError(f"Mock contract not found: {abs_contract}")
 
-        with open(abs_contract, "r", encoding="utf-8") as f:
+        with open(abs_contract, encoding="utf-8") as f:
             raw = yaml.safe_load(f)
 
         self._contract = MockContract(raw)
@@ -354,9 +359,7 @@ class MockServer:
             OSError: If the port is already in use.
         """
         if self._started:
-            raise RuntimeError(
-                f"MockServer already running on port {self._contract.port}"
-            )
+            raise RuntimeError(f"MockServer already running on port {self._contract.port}")
 
         # Build a handler class with the contract and base_dir bound
         handler_class = type(
@@ -422,6 +425,7 @@ class MockServer:
 # Multi-server helper
 # ---------------------------------------------------------------------------
 
+
 def start_mock_servers(
     registry_path: Path,
     base_dir: Path,
@@ -441,12 +445,9 @@ def start_mock_servers(
     if yaml is None:
         raise ImportError("PyYAML is required for start_mock_servers")
 
-    abs_registry = (
-        registry_path if registry_path.is_absolute()
-        else base_dir / registry_path
-    )
+    abs_registry = registry_path if registry_path.is_absolute() else base_dir / registry_path
 
-    with open(abs_registry, "r", encoding="utf-8") as f:
+    with open(abs_registry, encoding="utf-8") as f:
         registry = yaml.safe_load(f)
 
     servers: list[MockServer] = []

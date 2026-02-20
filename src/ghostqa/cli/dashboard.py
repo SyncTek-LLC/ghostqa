@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import webbrowser
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -38,7 +37,7 @@ def dashboard(
         "-p",
         help="Port to serve the dashboard on.",
     ),
-    evidence_dir: Optional[Path] = typer.Option(
+    evidence_dir: Path | None = typer.Option(
         None,
         "--evidence-dir",
         "-e",

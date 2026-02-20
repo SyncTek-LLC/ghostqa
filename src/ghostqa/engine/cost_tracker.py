@@ -28,6 +28,7 @@ logger = logging.getLogger("ghostqa.engine.cost_tracker")
 # from the centralized ghostqa.models.PRICING dict.
 # ---------------------------------------------------------------------------
 
+
 def _build_model_pricing() -> dict[str, tuple[float, float]]:
     """Convert PRICING dict to (input, output) tuple lookup."""
     result: dict[str, tuple[float, float]] = {}
@@ -134,10 +135,7 @@ class CostTracker:
         # Check hard cap
         if self._per_run_usd > 0 and self._total_cost > self._per_run_usd:
             self._budget_exceeded = True
-            raise BudgetExceededError(
-                f"Run budget exceeded: ${self._total_cost:.4f} > "
-                f"${self._per_run_usd:.2f} limit"
-            )
+            raise BudgetExceededError(f"Run budget exceeded: ${self._total_cost:.4f} > ${self._per_run_usd:.2f} limit")
 
         return call
 
@@ -387,17 +385,13 @@ class CostTracker:
                     line = json.dumps(entry, separators=(",", ":"))
                     fh.write(line + "\n")
                     # Advance the hash chain
-                    prev_hash = "sha256:" + hashlib.sha256(
-                        line.encode("utf-8")
-                    ).hexdigest()
+                    prev_hash = "sha256:" + hashlib.sha256(line.encode("utf-8")).hexdigest()
                     written += 1
         except Exception as exc:
             logger.error("Failed to flush costs to system ledger: %s", exc)
 
         if written:
-            logger.info(
-                "Flushed %d cost entries to %s", written, system_ledger_path
-            )
+            logger.info("Flushed %d cost entries to %s", written, system_ledger_path)
 
         return written
 

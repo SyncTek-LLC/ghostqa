@@ -18,7 +18,7 @@ import mimetypes
 import re
 import threading
 from http import HTTPStatus
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
@@ -195,9 +195,7 @@ class _DashboardHandler(BaseHTTPRequestHandler):
             if severity not in findings_by_severity:
                 findings_by_severity[severity] = []
             findings_by_severity[severity].append(f)
-        result["_findings_by_severity"] = {
-            k: v for k, v in findings_by_severity.items() if v
-        }
+        result["_findings_by_severity"] = {k: v for k, v in findings_by_severity.items() if v}
 
         template = self.jinja_env.get_template("detail.html")
         html = template.render(run=result, run_id=run_id)
@@ -275,12 +273,7 @@ class _DashboardHandler(BaseHTTPRequestHandler):
 
     def _send_error(self, status: HTTPStatus, message: str) -> None:
         """Send an error page."""
-        template = self.jinja_env.get_template("base.html")
-        html = template.render(
-            error_message=message,
-            error_status=status.value,
-        )
-        # We override the content block inline since base.html expects it
+        # Build error page inline (base.html's content block isn't used for errors)
         error_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>

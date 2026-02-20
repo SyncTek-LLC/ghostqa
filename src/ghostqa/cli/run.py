@@ -9,14 +9,11 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -40,8 +37,7 @@ def _parse_viewport(viewport_str: str) -> tuple[int, int]:
     except (ValueError, IndexError):
         console.print(
             Panel(
-                f"[red]Invalid viewport format:[/red] {viewport_str}\n\n"
-                "Expected format: WIDTHxHEIGHT (e.g., 1280x720)",
+                f"[red]Invalid viewport format:[/red] {viewport_str}\n\nExpected format: WIDTHxHEIGHT (e.g., 1280x720)",
                 title="[red]Config Error[/red]",
                 border_style="red",
             )
@@ -100,7 +96,7 @@ def _resolve_project_dir() -> Path:
 
 def _print_run_header(
     product: str,
-    journey: Optional[str],
+    journey: str | None,
     level: str,
     viewport: tuple[int, int],
     budget: float,
@@ -136,7 +132,7 @@ def _print_step_result(
     passed: bool,
     duration: float,
     cost: float,
-    error: Optional[str] = None,
+    error: str | None = None,
     findings_count: int = 0,
 ) -> None:
     """Print a single step result line."""
@@ -149,11 +145,7 @@ def _print_step_result(
 
     # Main line: icon, step counter, description, status
     step_label = f"Step {step_num}/{total_steps}"
-    line = Text()
-    console.print(
-        f"  {icon} {step_label}: {description}  {status}"
-        f"  [dim]{duration:.1f}s  ${cost:.4f}[/dim]"
-    )
+    console.print(f"  {icon} {step_label}: {description}  {status}  [dim]{duration:.1f}s  ${cost:.4f}[/dim]")
 
     if error and not passed:
         # Show the error indented under the step
@@ -238,7 +230,7 @@ def run(
         "-p",
         help="Product name (must match a .yaml in .ghostqa/products/).",
     ),
-    journey: Optional[str] = typer.Option(
+    journey: str | None = typer.Option(
         None,
         "--journey",
         "-j",
@@ -261,7 +253,7 @@ def run(
         "-b",
         help="Maximum budget for this run in USD.",
     ),
-    junit_xml: Optional[Path] = typer.Option(
+    junit_xml: Path | None = typer.Option(
         None,
         "--junit-xml",
         help="Path to write JUnit XML report (for CI integration).",
@@ -298,8 +290,7 @@ def run(
     if level not in valid_levels:
         console.print(
             Panel(
-                f"[red]Invalid level:[/red] {level}\n\n"
-                f"Valid levels: {', '.join(sorted(valid_levels))}",
+                f"[red]Invalid level:[/red] {level}\n\nValid levels: {', '.join(sorted(valid_levels))}",
                 title="[red]Config Error[/red]",
                 border_style="red",
             )
@@ -310,8 +301,7 @@ def run(
     if output_format not in ("text", "json"):
         console.print(
             Panel(
-                f"[red]Invalid output format:[/red] {output_format}\n\n"
-                "Valid formats: text, json",
+                f"[red]Invalid output format:[/red] {output_format}\n\nValid formats: text, json",
                 title="[red]Config Error[/red]",
                 border_style="red",
             )
@@ -417,8 +407,7 @@ def run(
         logger.exception("Unexpected error during run")
         console.print(
             Panel(
-                f"[red]Unexpected error:[/red] {exc}\n\n"
-                "Run with [bold]--verbose[/bold] for full traceback.",
+                f"[red]Unexpected error:[/red] {exc}\n\nRun with [bold]--verbose[/bold] for full traceback.",
                 title="[red]Infrastructure Error[/red]",
                 border_style="red",
             )
@@ -436,11 +425,16 @@ def run(
         if run_result_data:
             output_console.print(json.dumps(run_result_data, indent=2))
         else:
-            output_console.print(json.dumps({
-                "passed": all_passed,
-                "report": report_md,
-                "duration_seconds": round(duration, 2),
-            }, indent=2))
+            output_console.print(
+                json.dumps(
+                    {
+                        "passed": all_passed,
+                        "report": report_md,
+                        "duration_seconds": round(duration, 2),
+                    },
+                    indent=2,
+                )
+            )
     else:
         # Text output mode — rich formatting
         if run_result_data:
@@ -458,14 +452,16 @@ def run(
 
             step_reports = []
             for sr in run_result_data.get("step_reports", []):
-                step_reports.append(StepReport(
-                    step_id=sr.get("step_id", "unknown"),
-                    description=sr.get("description", ""),
-                    mode=sr.get("mode", ""),
-                    passed=sr.get("passed", False),
-                    duration_seconds=sr.get("duration_seconds", 0),
-                    error=sr.get("error"),
-                ))
+                step_reports.append(
+                    StepReport(
+                        step_id=sr.get("step_id", "unknown"),
+                        description=sr.get("description", ""),
+                        mode=sr.get("mode", ""),
+                        passed=sr.get("passed", False),
+                        duration_seconds=sr.get("duration_seconds", 0),
+                        error=sr.get("error"),
+                    )
+                )
             _write_junit_xml(junit_xml, run_result_data.get("run_id", "unknown"), product, step_reports, duration)
             if output_format == "text":
                 console.print(f"[dim]JUnit XML written to: {junit_xml}[/dim]\n")

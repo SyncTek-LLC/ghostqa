@@ -80,6 +80,7 @@ def _parse_yaml_key(path: Path) -> str | None:
     """Parse a YAML config file for an API key."""
     try:
         import yaml
+
         with open(path) as f:
             data = yaml.safe_load(f) or {}
         return data.get("anthropic_api_key") or data.get("api_key")

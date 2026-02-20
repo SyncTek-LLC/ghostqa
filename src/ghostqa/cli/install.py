@@ -100,8 +100,7 @@ def install(
     except subprocess.TimeoutExpired:
         console.print(
             Panel(
-                "[red]Installation timed out after 10 minutes.[/red]\n\n"
-                "Check your network connection and try again.",
+                "[red]Installation timed out after 10 minutes.[/red]\n\nCheck your network connection and try again.",
                 title="[red]Timeout[/red]",
                 border_style="red",
             )
@@ -111,9 +110,7 @@ def install(
     except FileNotFoundError:
         console.print(
             Panel(
-                "[red]Playwright is not installed.[/red]\n\n"
-                "Install it first:\n"
-                "  pip install playwright",
+                "[red]Playwright is not installed.[/red]\n\nInstall it first:\n  pip install playwright",
                 title="[red]Missing Dependency[/red]",
                 border_style="red",
             )

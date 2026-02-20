@@ -119,9 +119,7 @@ class GhostQAOrchestrator:
         if passed is not None:
             data["passed"] = passed
         try:
-            (evidence_dir / "run-status.json").write_text(
-                json.dumps(data, indent=2)
-            )
+            (evidence_dir / "run-status.json").write_text(json.dumps(data, indent=2))
         except Exception as exc:
             logger.warning("Failed to write run-status.json: %s", exc)
 
@@ -225,7 +223,8 @@ class GhostQAOrchestrator:
         except (SystemExit, KeyboardInterrupt):
             logger.info("GhostQA run %s terminated by signal", run_id)
             all_passed = False
-            combined_report = "\n\n---\n\n".join(all_reports) if all_reports else "# GhostQA Run Terminated\n\nRun was terminated by external signal."
+            terminated_msg = "# GhostQA Run Terminated\n\nRun was terminated by external signal."
+            combined_report = "\n\n---\n\n".join(all_reports) if all_reports else terminated_msg
             return combined_report, False
 
         finally:
@@ -326,9 +325,7 @@ class GhostQAOrchestrator:
 
         # Check preconditions
         preconditions = scenario.get("preconditions", [])
-        precond_ok, precond_errors = self._check_preconditions(
-            preconditions, product_config
-        )
+        precond_ok, precond_errors = self._check_preconditions(preconditions, product_config)
 
         findings: list[Finding] = []
         step_reports: list[StepReport] = []
@@ -336,21 +333,21 @@ class GhostQAOrchestrator:
 
         if not precond_ok:
             for err in precond_errors:
-                findings.append(Finding(
-                    severity="block",
-                    category="server_error",
-                    description=f"Precondition failed: {err}",
-                    evidence="",
-                    step_id="precondition",
-                ))
+                findings.append(
+                    Finding(
+                        severity="block",
+                        category="server_error",
+                        description=f"Precondition failed: {err}",
+                        evidence="",
+                        step_id="precondition",
+                    )
+                )
             # Don't run steps if preconditions failed
             end_iso = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
             duration = round(time.monotonic() - start_time, 2)
             cost_summary = cost_tracker.get_summary()
             fail_vp_name = viewport_override or persona.get("preferred_device", "desktop")
-            fail_vp = product_config.get("viewports", {}).get(
-                fail_vp_name, {"width": 0, "height": 0}
-            )
+            fail_vp = product_config.get("viewports", {}).get(fail_vp_name, {"width": 0, "height": 0})
 
             result = VTERunResult(
                 run_id=run_id,
@@ -414,15 +411,18 @@ class GhostQAOrchestrator:
                 if run_elapsed > max_run_duration:
                     logger.warning(
                         "Run timeout exceeded: %.0fs > %ds limit",
-                        run_elapsed, max_run_duration,
+                        run_elapsed,
+                        max_run_duration,
                     )
-                    findings.append(Finding(
-                        severity="block",
-                        category="performance",
-                        description=f"Run timeout exceeded ({max_run_duration}s)",
-                        evidence="",
-                        step_id="global_timeout",
-                    ))
+                    findings.append(
+                        Finding(
+                            severity="block",
+                            category="performance",
+                            description=f"Run timeout exceeded ({max_run_duration}s)",
+                            evidence="",
+                            step_id="global_timeout",
+                        )
+                    )
                     break
 
                 # Per-step template resolution — includes captured vars from earlier API steps
@@ -459,57 +459,65 @@ class GhostQAOrchestrator:
                             browser_runner.start()
 
                         browser_result = browser_runner.execute_step(step, captured_vars)
-                        step_reports.append(
-                            browser_runner.to_step_report(browser_result, description)
-                        )
+                        step_reports.append(browser_runner.to_step_report(browser_result, description))
                         findings.extend(browser_result.findings)
 
                     else:
                         logger.warning("Unknown step mode: %s for step %s", mode, step_id)
-                        step_reports.append(StepReport(
+                        step_reports.append(
+                            StepReport(
+                                step_id=step_id,
+                                description=description,
+                                mode=mode,
+                                passed=False,
+                                duration_seconds=0,
+                                error=f"Unknown step mode: {mode}",
+                            )
+                        )
+
+                except BudgetExceededError as exc:
+                    budget_exceeded = True
+                    findings.append(
+                        Finding(
+                            severity="block",
+                            category="performance",
+                            description=f"Budget exceeded during step {step_id}: {exc}",
+                            evidence="",
+                            step_id=step_id,
+                        )
+                    )
+                    step_reports.append(
+                        StepReport(
                             step_id=step_id,
                             description=description,
                             mode=mode,
                             passed=False,
                             duration_seconds=0,
-                            error=f"Unknown step mode: {mode}",
-                        ))
-
-                except BudgetExceededError as exc:
-                    budget_exceeded = True
-                    findings.append(Finding(
-                        severity="block",
-                        category="performance",
-                        description=f"Budget exceeded during step {step_id}: {exc}",
-                        evidence="",
-                        step_id=step_id,
-                    ))
-                    step_reports.append(StepReport(
-                        step_id=step_id,
-                        description=description,
-                        mode=mode,
-                        passed=False,
-                        duration_seconds=0,
-                        error=str(exc),
-                    ))
+                            error=str(exc),
+                        )
+                    )
 
                 except Exception as exc:
                     logger.error("Step %s failed with exception: %s", step_id, exc, exc_info=True)
-                    findings.append(Finding(
-                        severity="block",
-                        category="server_error",
-                        description=f"Unhandled exception in step {step_id}: {exc}",
-                        evidence="",
-                        step_id=step_id,
-                    ))
-                    step_reports.append(StepReport(
-                        step_id=step_id,
-                        description=description,
-                        mode=mode,
-                        passed=False,
-                        duration_seconds=0,
-                        error=str(exc),
-                    ))
+                    findings.append(
+                        Finding(
+                            severity="block",
+                            category="server_error",
+                            description=f"Unhandled exception in step {step_id}: {exc}",
+                            evidence="",
+                            step_id=step_id,
+                        )
+                    )
+                    step_reports.append(
+                        StepReport(
+                            step_id=step_id,
+                            description=description,
+                            mode=mode,
+                            passed=False,
+                            duration_seconds=0,
+                            error=str(exc),
+                        )
+                    )
         finally:
             # Always close the browser runner if it was started
             if browser_runner is not None:
@@ -535,9 +543,7 @@ class GhostQAOrchestrator:
         passed = all_steps_passed and not has_blocking_findings
 
         # Classify findings against scenario failure_classification
-        classified_findings = self._classify_findings(
-            findings, scenario.get("failure_classification", [])
-        )
+        classified_findings = self._classify_findings(findings, scenario.get("failure_classification", []))
 
         # Resolve viewport for report
         report_viewport_name = viewport_override or persona.get("preferred_device", "desktop")
@@ -648,7 +654,7 @@ class GhostQAOrchestrator:
             logger.error("File not found: %s", path)
             return None
         try:
-            with open(path, "r", encoding="utf-8") as fh:
+            with open(path, encoding="utf-8") as fh:
                 return yaml.safe_load(fh)
         except Exception as exc:
             logger.error("Failed to parse YAML %s: %s", path, exc)
@@ -656,9 +662,7 @@ class GhostQAOrchestrator:
 
     # ── Template Resolution ──────────────────────────────────────────────
 
-    def _build_template_vars(
-        self, persona: dict[str, Any], run_id: str
-    ) -> dict[str, Any]:
+    def _build_template_vars(self, persona: dict[str, Any], run_id: str) -> dict[str, Any]:
         """Build the flat template variable dict for {{var.path}} resolution."""
         return {
             "run_id": run_id,
@@ -773,9 +777,7 @@ class GhostQAOrchestrator:
                         f"expected {expected_status} (URL: {url})"
                     )
             except requests.RequestException as exc:
-                errors.append(
-                    f"Service '{service_name}' unreachable: {exc} (URL: {url})"
-                )
+                errors.append(f"Service '{service_name}' unreachable: {exc} (URL: {url})")
 
         return len(errors) == 0, errors
 
@@ -783,9 +785,7 @@ class GhostQAOrchestrator:
     def _check_command(command: str) -> bool:
         """Run a shell command and return True if it exits 0."""
         try:
-            result = subprocess.run(
-                shlex.split(command), capture_output=True, timeout=10
-            )
+            result = subprocess.run(shlex.split(command), capture_output=True, timeout=10)
             return result.returncode == 0
         except Exception:
             return False
@@ -818,9 +818,7 @@ class GhostQAOrchestrator:
     # ── Utilities ────────────────────────────────────────────────────────
 
     @staticmethod
-    def _save_run_artifacts(
-        result: VTERunResult, report: str, evidence_dir: Path
-    ) -> None:
+    def _save_run_artifacts(result: VTERunResult, report: str, evidence_dir: Path) -> None:
         """Save the run result as JSON and markdown artifacts.
 
         Args:
@@ -828,6 +826,7 @@ class GhostQAOrchestrator:
             report: The generated markdown report
             evidence_dir: Directory to save artifacts to
         """
+
         # Helper function for JSON serialization of non-standard types
         def json_serialize(obj: Any) -> str:
             if isinstance(obj, Path):
@@ -838,9 +837,7 @@ class GhostQAOrchestrator:
         try:
             result_dict = dataclasses.asdict(result)
             result_json_path = evidence_dir / "run-result.json"
-            result_json_path.write_text(
-                json.dumps(result_dict, indent=2, default=json_serialize)
-            )
+            result_json_path.write_text(json.dumps(result_dict, indent=2, default=json_serialize))
             logger.info("Saved run result JSON to %s", result_json_path)
         except Exception as exc:
             logger.warning("Failed to save run-result.json: %s", exc)

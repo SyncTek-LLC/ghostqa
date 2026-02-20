@@ -5,8 +5,6 @@ Registers all subcommands and provides --version / --verbose global options.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import typer
 from rich.console import Console
 
@@ -51,7 +49,7 @@ app = typer.Typer(
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         "-V",
