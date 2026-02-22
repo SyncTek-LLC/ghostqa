@@ -1,0 +1,12 @@
+product:
+  name: ForgeOS
+  description: "Governed agentic software delivery OS"
+  app_type: native_macos
+  app_path: /Applications/ForgeOS.app
+  bundle_id: com.synctek.forgeos
+  preconditions:
+    - "App is installed"
+    - "No existing projects (clean state)"
+  timeout: 300
+  cost_limits:
+    per_run_usd: 2.00

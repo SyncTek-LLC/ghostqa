@@ -1,0 +1,61 @@
+scenario:
+  id: SCN-FORGEOS-001
+  name: "ForgeOS First-Time Onboarding"
+  description: >
+    Tests the first-time experience of ForgeOS: launching the app,
+    creating a new project, and navigating to the spec view.
+  product: forgeos
+  tags: [onboarding, critical_path, native]
+  personas:
+    - ref: alex-developer
+      role: primary
+
+  steps:
+    - id: launch-app
+      mode: native_app
+      goal: "Launch ForgeOS and verify the welcome screen appears"
+      max_actions: 5
+      max_duration_seconds: 30
+      actions:
+        - action: wait
+          value: "2"
+        - action: done
+
+    - id: create-project
+      mode: native_app
+      goal: "Create a new project named 'test-project'"
+      max_actions: 10
+      max_duration_seconds: 60
+      actions:
+        - action: click
+          target: "New Project"
+          role: AXButton
+        - action: wait
+          value: "1"
+        - action: type
+          target: "Project Name"
+          value: "test-project"
+          role: AXTextField
+        - action: click
+          target: "Create"
+          role: AXButton
+        - action: wait
+          value: "2"
+        - action: done
+
+    - id: navigate-spec-view
+      mode: native_app
+      goal: "Navigate to the specification view for the new project"
+      max_actions: 10
+      max_duration_seconds: 60
+      actions:
+        - action: click
+          target: "test-project"
+        - action: wait
+          value: "1"
+        - action: click
+          target: "Spec"
+          role: AXButton
+        - action: wait
+          value: "1"
+        - action: done
