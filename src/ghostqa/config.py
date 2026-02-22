@@ -46,6 +46,13 @@ class GhostQAConfig:
     timeout: int = 600
     level: str = "standard"
 
+    # Native app / simulator testing
+    app_type: str = "web"  # web | native_macos | ios_simulator | api
+    app_path: str | None = None  # Path to .app bundle
+    bundle_id: str | None = None  # e.g. "com.example.myapp"
+    simulator_device: str | None = None  # Simulator UDID or device name
+    simulator_os: str | None = None  # e.g. "17.2"
+
     # Optional integrations (for BusinessAtlas adapter)
     cost_ledger_path: Path | None = None
     system_ledger_path: Path | None = None
@@ -97,6 +104,18 @@ class GhostQAConfig:
             vp = data["viewport"]
             if isinstance(vp, dict):
                 config.viewport = (vp.get("width", 1280), vp.get("height", 720))
+
+        # Native app / simulator fields
+        if "app_type" in data:
+            config.app_type = str(data["app_type"])
+        if "app_path" in data:
+            config.app_path = str(data["app_path"])
+        if "bundle_id" in data:
+            config.bundle_id = str(data["bundle_id"])
+        if "simulator_device" in data:
+            config.simulator_device = str(data["simulator_device"])
+        if "simulator_os" in data:
+            config.simulator_os = str(data["simulator_os"])
 
         return config
 

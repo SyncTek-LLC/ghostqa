@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ghostqa"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI persona-based behavioral testing for web apps. No test scripts. YAML-configured. Vision-powered."
 readme = "README.md"
 license = "MIT"
@@ -35,6 +35,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+native = [
+    "pyobjc-framework-ApplicationServices>=10.0",
+    "pyobjc-framework-Cocoa>=10.0",
+    "pyobjc-framework-Quartz>=10.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -50,6 +58,7 @@ Issues = "https://github.com/SyncTek-LLC/ghostqa/issues"
 
 [project.scripts]
 ghostqa = "ghostqa.cli.app:app"
+ghostqa-mcp = "ghostqa.mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ghostqa"]

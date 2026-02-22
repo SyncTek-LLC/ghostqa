@@ -43,7 +43,11 @@ class StepReport:
 
 @dataclasses.dataclass
 class RunResult:
-    """Complete result of a GhostQA run."""
+    """Complete result of a GhostQA run.
+
+    Also available as ``VTERunResult`` for backward compatibility with
+    code ported from the BusinessAtlas VTE.
+    """
 
     run_id: str
     scenario_name: str
@@ -200,3 +204,7 @@ class ReportGenerator:
                 short_name = model.split("-")[1] if "-" in model else model
                 lines.append(f"  - {short_name}: {count} calls, ${cost:.4f}")
         return "\n".join(lines)
+
+
+# Backward-compatible alias used by the orchestrator (ported from VTE).
+VTERunResult = RunResult

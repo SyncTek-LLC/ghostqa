@@ -398,6 +398,12 @@ class GhostQAOrchestrator:
         # Created lazily on the first browser step, closed after all steps finish.
         browser_runner: BrowserRunner | None = None
 
+        # Native app runner -- created lazily on first native_app step.
+        native_app_runner: Any = None
+
+        # iOS simulator runner -- created lazily on first ios_simulator step.
+        simulator_runner: Any = None
+
         # Execute steps
         budget_exceeded = False
         max_run_duration = self._config.timeout
@@ -462,6 +468,61 @@ class GhostQAOrchestrator:
                         step_reports.append(browser_runner.to_step_report(browser_result, description))
                         findings.extend(browser_result.findings)
 
+                    elif mode == "native_app":
+                        # Lazily create a NativeAppRunner on first native_app step
+                        if native_app_runner is None:
+                            from ghostqa.engine.native_app_runner import NativeAppRunner
+
+                            app_path = product_config.get("app_path", "")
+                            bundle_id = product_config.get("bundle_id")
+                            if not app_path:
+                                raise RuntimeError(
+                                    "native_app step requires 'app_path' in product config"
+                                )
+                            native_app_runner = NativeAppRunner(
+                                app_path=app_path,
+                                evidence_dir=evidence_dir,
+                                bundle_id=bundle_id,
+                                product_config=product_config,
+                            )
+                            native_app_runner.start()
+
+                        native_result = native_app_runner.execute_step(step, captured_vars)
+                        step_reports.append(
+                            native_app_runner.to_step_report(native_result, description)
+                        )
+                        findings.extend(native_result.findings)
+
+                    elif mode == "ios_simulator":
+                        # Lazily create a SimulatorRunner on first ios_simulator step
+                        if simulator_runner is None:
+                            from ghostqa.engine.simulator_runner import SimulatorRunner
+
+                            bundle_id = product_config.get("bundle_id", "")
+                            sim_app_path = product_config.get("app_path")
+                            sim_device = product_config.get("simulator_device")
+                            sim_os = product_config.get("simulator_os")
+                            if not bundle_id:
+                                raise RuntimeError(
+                                    "ios_simulator step requires 'bundle_id' in product config"
+                                )
+                            simulator_runner = SimulatorRunner(
+                                bundle_id=bundle_id,
+                                evidence_dir=evidence_dir,
+                                app_path=sim_app_path,
+                                device_id=sim_device if sim_device and len(sim_device) > 20 else None,
+                                device_name=sim_device if sim_device and len(sim_device) <= 20 else None,
+                                os_version=sim_os,
+                                product_config=product_config,
+                            )
+                            simulator_runner.start()
+
+                        sim_result = simulator_runner.execute_step(step, captured_vars)
+                        step_reports.append(
+                            simulator_runner.to_step_report(sim_result, description)
+                        )
+                        findings.extend(sim_result.findings)
+
                     else:
                         logger.warning("Unknown step mode: %s for step %s", mode, step_id)
                         step_reports.append(
@@ -519,9 +580,13 @@ class GhostQAOrchestrator:
                         )
                     )
         finally:
-            # Always close the browser runner if it was started
+            # Always close runners if they were started
             if browser_runner is not None:
                 browser_runner.stop()
+            if native_app_runner is not None:
+                native_app_runner.stop()
+            if simulator_runner is not None:
+                simulator_runner.stop()
 
         # Determine overall pass/fail
         end_iso = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
