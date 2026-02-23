@@ -1,8 +1,8 @@
-"""Unit tests for ghostqa.models — Model constants and pricing."""
+"""Unit tests for specterqa.models — Model constants and pricing."""
 
 from __future__ import annotations
 
-from ghostqa.models import (
+from specterqa.models import (
     DEFAULT_BUDGET_USD,
     DEFAULT_STEP_TIMEOUT,
     DEFAULT_VIEWPORT,
@@ -129,7 +129,7 @@ class TestTimeoutConstants:
         assert DEFAULT_STEP_TIMEOUT > 0
 
     def test_run_timeout_at_least_step_timeout(self):
-        from ghostqa.models import DEFAULT_RUN_TIMEOUT
+        from specterqa.models import DEFAULT_RUN_TIMEOUT
         assert DEFAULT_RUN_TIMEOUT >= DEFAULT_STEP_TIMEOUT
 
     def test_max_actions_is_positive(self):

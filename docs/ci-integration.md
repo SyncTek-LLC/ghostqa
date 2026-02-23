@@ -1,6 +1,6 @@
 # CI Integration
 
-GhostQA is designed to run in CI. It operates headless by default, produces JUnit XML reports, and returns meaningful exit codes.
+SpecterQA is designed to run in CI. It operates headless by default, produces JUnit XML reports, and returns meaningful exit codes.
 
 ## Exit Codes
 
@@ -16,7 +16,7 @@ GhostQA is designed to run in CI. It operates headless by default, produces JUni
 Add `--junit-xml` to any run command to produce a JUnit-compatible XML report:
 
 ```bash
-ghostqa run -p myapp --junit-xml results.xml
+specterqa run -p myapp --junit-xml results.xml
 ```
 
 The XML follows the standard JUnit format. Each step becomes a `<testcase>`, failures include the error description. This plugs into any CI system that reads JUnit XML (which is basically all of them).
@@ -26,7 +26,7 @@ The XML follows the standard JUnit format. Each step becomes a `<testcase>`, fai
 For programmatic consumption, use `--output json`:
 
 ```bash
-ghostqa run -p myapp --output json > results.json
+specterqa run -p myapp --output json > results.json
 ```
 
 JSON goes to stdout; human-readable progress goes to stderr. This means you can pipe JSON to a file while still seeing progress in CI logs.
@@ -71,7 +71,7 @@ The JSON structure:
 ## GitHub Actions
 
 ```yaml
-name: GhostQA Behavioral Tests
+name: SpecterQA Behavioral Tests
 
 on:
   pull_request:
@@ -79,7 +79,7 @@ on:
     branches: [main]
 
 jobs:
-  ghostqa:
+  specterqa:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,16 +88,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install GhostQA
+      - name: Install SpecterQA
         run: |
-          pip install ghostqa
-          ghostqa install
+          pip install specterqa
+          specterqa install
 
       - name: Run behavioral tests
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          ghostqa run -p myapp \
+          specterqa run -p myapp \
             --level smoke \
             --budget 2.00 \
             --junit-xml results.xml
@@ -106,16 +106,16 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ghostqa-results
+          name: specterqa-results
           path: |
             results.xml
-            .ghostqa/evidence/
+            .specterqa/evidence/
 
       - name: Publish JUnit results
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: GhostQA Results
+          name: SpecterQA Results
           path: results.xml
           reporter: java-junit
 ```
@@ -126,7 +126,7 @@ jobs:
 - **Use `--level smoke` for PR checks.** Smoke tests run one scenario and cost ~$0.30-0.60. Full runs on merge to main.
 - **Set a tight `--budget`.** $2.00 is usually plenty for a smoke test. This prevents runaway costs if something goes wrong.
 - **Upload the evidence directory.** The screenshots and findings are invaluable for debugging failures.
-- **Start your app first.** GhostQA needs your app running. Add a step to start it and wait for the health endpoint before running tests.
+- **Start your app first.** SpecterQA needs your app running. Add a step to start it and wait for the health endpoint before running tests.
 
 ### Starting Your App in CI
 
@@ -146,22 +146,22 @@ A common pattern:
 ## GitLab CI
 
 ```yaml
-ghostqa:
+specterqa:
   image: python:3.12
   stage: test
   variables:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
   before_script:
-    - pip install ghostqa
-    - ghostqa install
+    - pip install specterqa
+    - specterqa install
   script:
-    - ghostqa run -p myapp --level smoke --budget 2.00 --junit-xml results.xml
+    - specterqa run -p myapp --level smoke --budget 2.00 --junit-xml results.xml
   artifacts:
     when: always
     reports:
       junit: results.xml
     paths:
-      - .ghostqa/evidence/
+      - .specterqa/evidence/
     expire_in: 7 days
 ```
 
@@ -171,27 +171,27 @@ ghostqa:
 version: 2.1
 
 jobs:
-  ghostqa:
+  specterqa:
     docker:
       - image: cimg/python:3.12
     steps:
       - checkout
       - run:
-          name: Install GhostQA
+          name: Install SpecterQA
           command: |
-            pip install ghostqa
-            ghostqa install
+            pip install specterqa
+            specterqa install
       - run:
           name: Run behavioral tests
           command: |
-            ghostqa run -p myapp \
+            specterqa run -p myapp \
               --level smoke \
               --budget 2.00 \
               --junit-xml results.xml
       - store_test_results:
           path: results.xml
       - store_artifacts:
-          path: .ghostqa/evidence/
+          path: .specterqa/evidence/
 ```
 
 ## Budget Management in CI
@@ -215,19 +215,19 @@ cost_limits:
   per_month_usd: 200.00
 ```
 
-The cost ledger (`.ghostqa/costs.jsonl`) tracks cumulative spend. If the daily or monthly cap is hit, subsequent runs will refuse to start.
+The cost ledger (`.specterqa/costs.jsonl`) tracks cumulative spend. If the daily or monthly cap is hit, subsequent runs will refuse to start.
 
 ## Headless Mode
 
-GhostQA runs headless by default (`--headless` is the default). In CI, this is what you want. If you need to debug locally with a visible browser:
+SpecterQA runs headless by default (`--headless` is the default). In CI, this is what you want. If you need to debug locally with a visible browser:
 
 ```bash
-ghostqa run -p myapp --no-headless
+specterqa run -p myapp --no-headless
 ```
 
 ## Playwright in CI
 
-`ghostqa install` runs `playwright install --with-deps chromium` under the hood. On Ubuntu-based CI images, this installs the necessary system dependencies automatically. If you're using a minimal Docker image, you may need to install additional packages:
+`specterqa install` runs `playwright install --with-deps chromium` under the hood. On Ubuntu-based CI images, this installs the necessary system dependencies automatically. If you're using a minimal Docker image, you may need to install additional packages:
 
 ```dockerfile
 RUN apt-get update && apt-get install -y \
@@ -244,7 +244,7 @@ Or just use the official Playwright Docker image as your base.
 After a CI run, the evidence directory contains:
 
 ```
-.ghostqa/evidence/GQA-RUN-20260222-143052-a1b2/
+.specterqa/evidence/GQA-RUN-20260222-143052-a1b2/
   run-result.json      # Structured results (JSON)
   run-meta.json        # Run metadata
   run-status.json      # Final status

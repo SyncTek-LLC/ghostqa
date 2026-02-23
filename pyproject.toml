@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ghostqa"
-version = "0.2.2"
+name = "specterqa"
+version = "0.3.0"
 description = "AI persona-based behavioral testing for web apps. No test scripts. YAML-configured. Vision-powered."
 readme = "README.md"
 license = "MIT"
@@ -52,16 +52,16 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/SyncTek-LLC/ghostqa"
-Repository = "https://github.com/SyncTek-LLC/ghostqa"
-Issues = "https://github.com/SyncTek-LLC/ghostqa/issues"
+Homepage = "https://github.com/SyncTek-LLC/specterqa"
+Repository = "https://github.com/SyncTek-LLC/specterqa"
+Issues = "https://github.com/SyncTek-LLC/specterqa/issues"
 
 [project.scripts]
-ghostqa = "ghostqa.cli.app:app"
-ghostqa-mcp = "ghostqa.mcp.server:main"
+specterqa = "specterqa.cli.app:app"
+specterqa-mcp = "specterqa.mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ghostqa"]
+packages = ["src/specterqa"]
 
 [tool.ruff]
 target-version = "py310"
@@ -80,5 +80,5 @@ warn_unused_configs = true
 testpaths = ["tests"]
 markers = [
     "integration: requires running app and API key",
-    "dogfood: GhostQA testing itself",
+    "dogfood: SpecterQA testing itself",
 ]

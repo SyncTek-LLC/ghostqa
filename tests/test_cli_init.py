@@ -1,4 +1,4 @@
-"""Unit tests for ghostqa.cli.init_cmd — the 'ghostqa init' command."""
+"""Unit tests for specterqa.cli.init_cmd — the 'specterqa init' command."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from ghostqa.cli.init_cmd import (
+from specterqa.cli.init_cmd import (
     _SAMPLE_CONFIG,
     _SAMPLE_JOURNEY,
     _SAMPLE_PERSONA,
@@ -22,13 +22,13 @@ from ghostqa.cli.init_cmd import (
 # ---------------------------------------------------------------------------
 
 class TestInitDirectoryStructure:
-    """ghostqa init should create the full .ghostqa/ directory tree."""
+    """specterqa init should create the full .specterqa/ directory tree."""
 
-    def test_creates_ghostqa_directory(self, tmp_path: Path):
-        """init should create .ghostqa/ in the target directory."""
+    def test_creates_specterqa_directory(self, tmp_path: Path):
+        """init should create .specterqa/ in the target directory."""
         # Invoke the init function directly, simulating --dir=tmp_path
         # We need to bypass typer's Option processing, so call the underlying logic
-        project_dir = tmp_path / ".ghostqa"
+        project_dir = tmp_path / ".specterqa"
         subdirs = ["products", "personas", "journeys", "evidence"]
         for sub in subdirs:
             (project_dir / sub).mkdir(parents=True, exist_ok=True)
@@ -37,7 +37,7 @@ class TestInitDirectoryStructure:
 
     def test_creates_all_expected_subdirectories(self, tmp_path: Path):
         """All four subdirectories should be created."""
-        project_dir = tmp_path / ".ghostqa"
+        project_dir = tmp_path / ".specterqa"
         expected_subdirs = ["products", "personas", "journeys", "evidence"]
         for sub in expected_subdirs:
             (project_dir / sub).mkdir(parents=True, exist_ok=True)
@@ -65,11 +65,11 @@ class TestInitDirectoryStructure:
 # ---------------------------------------------------------------------------
 
 class TestInitExistingDirectory:
-    """ghostqa init should not overwrite existing config without --force."""
+    """specterqa init should not overwrite existing config without --force."""
 
     def test_existing_dir_raises_without_force(self, tmp_path: Path):
-        """init with existing .ghostqa/ and no --force should exit with code 2."""
-        project_dir = tmp_path / ".ghostqa"
+        """init with existing .specterqa/ and no --force should exit with code 2."""
+        project_dir = tmp_path / ".specterqa"
         project_dir.mkdir()
 
         # typer.Exit raises click.exceptions.Exit (not SystemExit) when called directly
@@ -78,8 +78,8 @@ class TestInitExistingDirectory:
             init(dir=tmp_path, force=False)
 
     def test_existing_dir_succeeds_with_force(self, tmp_path: Path):
-        """init with existing .ghostqa/ and --force should proceed."""
-        project_dir = tmp_path / ".ghostqa"
+        """init with existing .specterqa/ and --force should proceed."""
+        project_dir = tmp_path / ".specterqa"
         project_dir.mkdir()
 
         # Should not raise
@@ -129,14 +129,14 @@ class TestInitWritesFiles:
 
     def test_config_yaml_written(self, tmp_path: Path):
         init(dir=tmp_path, force=False)
-        config_path = tmp_path / ".ghostqa" / "config.yaml"
+        config_path = tmp_path / ".specterqa" / "config.yaml"
         assert config_path.exists()
         data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         assert "budget" in data
 
     def test_sample_product_written(self, tmp_path: Path):
         init(dir=tmp_path, force=False)
-        product_path = tmp_path / ".ghostqa" / "products" / "demo.yaml"
+        product_path = tmp_path / ".specterqa" / "products" / "demo.yaml"
         assert product_path.exists()
         data = yaml.safe_load(product_path.read_text(encoding="utf-8"))
         assert isinstance(data, dict)
@@ -147,7 +147,7 @@ class TestInitWritesFiles:
 
     def test_sample_persona_written(self, tmp_path: Path):
         init(dir=tmp_path, force=False)
-        persona_path = tmp_path / ".ghostqa" / "personas" / "alex-developer.yaml"
+        persona_path = tmp_path / ".specterqa" / "personas" / "alex-developer.yaml"
         assert persona_path.exists()
         data = yaml.safe_load(persona_path.read_text(encoding="utf-8"))
         assert isinstance(data, dict)
@@ -157,7 +157,7 @@ class TestInitWritesFiles:
 
     def test_sample_journey_written(self, tmp_path: Path):
         init(dir=tmp_path, force=False)
-        journey_path = tmp_path / ".ghostqa" / "journeys" / "demo-onboarding.yaml"
+        journey_path = tmp_path / ".specterqa" / "journeys" / "demo-onboarding.yaml"
         assert journey_path.exists()
         data = yaml.safe_load(journey_path.read_text(encoding="utf-8"))
         assert isinstance(data, dict)
@@ -170,6 +170,6 @@ class TestInitWritesFiles:
 
     def test_all_four_subdirs_created(self, tmp_path: Path):
         init(dir=tmp_path, force=False)
-        ghostqa_dir = tmp_path / ".ghostqa"
+        specterqa_dir = tmp_path / ".specterqa"
         for subdir in ("products", "personas", "journeys", "evidence"):
-            assert (ghostqa_dir / subdir).is_dir(), f"Missing: {subdir}/"
+            assert (specterqa_dir / subdir).is_dir(), f"Missing: {subdir}/"

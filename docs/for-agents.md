@@ -1,22 +1,22 @@
-# GhostQA for AI Agents
+# SpecterQA for AI Agents
 
-This document covers how AI agents and automated systems can use GhostQA programmatically. If you're building agent tooling, orchestrating test runs from code, or planning to integrate GhostQA into an agent workflow, this is for you.
+This document covers how AI agents and automated systems can use SpecterQA programmatically. If you're building agent tooling, orchestrating test runs from code, or planning to integrate SpecterQA into an agent workflow, this is for you.
 
 ## Overview
 
-GhostQA provides three integration surfaces:
+SpecterQA provides three integration surfaces:
 
-1. **CLI with JSON output** -- Simplest. Shell out to `ghostqa run` with `--output json`.
+1. **CLI with JSON output** -- Simplest. Shell out to `specterqa run` with `--output json`.
 2. **Python API** -- Import and invoke directly. Full control over config and execution.
-3. **Federated Protocol** -- Swap in your own AI decider or action executor. Use GhostQA's loop with your own brain.
+3. **Federated Protocol** -- Swap in your own AI decider or action executor. Use SpecterQA's loop with your own brain.
 4. **MCP Server** -- Shipped. Model Context Protocol server for agent-native tool discovery and invocation.
 
 ## CLI Integration
 
-The fastest way for an agent to use GhostQA:
+The fastest way for an agent to use SpecterQA:
 
 ```bash
-ghostqa run -p myapp --output json --level smoke --budget 2.00
+specterqa run -p myapp --output json --level smoke --budget 2.00
 ```
 
 - Human-readable progress goes to **stderr**
@@ -99,28 +99,28 @@ ghostqa run -p myapp --output json --level smoke --budget 2.00
 
 ## Python API
 
-For tighter integration, use GhostQA as a Python library.
+For tighter integration, use SpecterQA as a Python library.
 
 ### Basic Usage
 
 ```python
 from pathlib import Path
-from ghostqa.config import GhostQAConfig
-from ghostqa.engine.orchestrator import GhostQAOrchestrator
+from specterqa.config import SpecterQAConfig
+from specterqa.engine.orchestrator import SpecterQAOrchestrator
 
 # Configure
-config = GhostQAConfig()
-config.project_dir = Path(".ghostqa")
-config.products_dir = Path(".ghostqa/products")
-config.personas_dir = Path(".ghostqa/personas")
-config.journeys_dir = Path(".ghostqa/journeys")
-config.evidence_dir = Path(".ghostqa/evidence")
+config = SpecterQAConfig()
+config.project_dir = Path(".specterqa")
+config.products_dir = Path(".specterqa/products")
+config.personas_dir = Path(".specterqa/personas")
+config.journeys_dir = Path(".specterqa/journeys")
+config.evidence_dir = Path(".specterqa/evidence")
 config.anthropic_api_key = "sk-ant-..."
 config.budget = 5.00
 config.headless = True
 
 # Run
-orchestrator = GhostQAOrchestrator(config)
+orchestrator = SpecterQAOrchestrator(config)
 report_md, all_passed = orchestrator.run(
     product="myapp",
     level="smoke",
@@ -133,7 +133,7 @@ report_md, all_passed = orchestrator.run(
 ### Loading Config from File
 
 ```python
-config = GhostQAConfig.from_file(Path(".ghostqa/config.yaml"))
+config = SpecterQAConfig.from_file(Path(".specterqa/config.yaml"))
 config.anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
 config.product_name = "myapp"
 ```
@@ -146,7 +146,7 @@ After a run, structured results are saved to the evidence directory:
 import json
 from pathlib import Path
 
-evidence_dir = Path(".ghostqa/evidence")
+evidence_dir = Path(".specterqa/evidence")
 # Find most recent run
 run_dirs = sorted(evidence_dir.glob("GQA-RUN-*"), reverse=True)
 if run_dirs:
@@ -164,11 +164,11 @@ if run_dirs:
 The `CostTracker` class provides detailed cost information:
 
 ```python
-from ghostqa.engine.cost_tracker import CostTracker
+from specterqa.engine.cost_tracker import CostTracker
 
 # Check cumulative budget before starting a run
 budget_status = CostTracker.check_cumulative_budget(
-    base_dir=Path(".ghostqa"),
+    base_dir=Path(".specterqa"),
     per_day_usd=20.00,
     per_month_usd=200.00,
 )
@@ -183,16 +183,16 @@ if not budget_status["monthly_ok"]:
 
 ## Federated Protocol
 
-GhostQA's engine is modular. The core `AIStepRunner` accepts any implementation of the `AIDecider` and `ActionExecutor` protocols. This means you can:
+SpecterQA's engine is modular. The core `AIStepRunner` accepts any implementation of the `AIDecider` and `ActionExecutor` protocols. This means you can:
 
 - Use your own AI model (GPT, Gemini, local LLM) as the decision-maker
 - Use your own action execution backend (custom browser automation, hardware control, etc.)
-- Use GhostQA's stuck detection, evidence collection, and cost tracking with your own components
+- Use SpecterQA's stuck detection, evidence collection, and cost tracking with your own components
 
 ### The Protocols
 
 ```python
-from ghostqa.engine.protocols import AIDecider, ActionExecutor, Decision, ActionResult
+from specterqa.engine.protocols import AIDecider, ActionExecutor, Decision, ActionResult
 
 # AIDecider: receives screenshot + goal, returns action decision
 class AIDecider(Protocol):
@@ -229,7 +229,7 @@ class Decision:
 ### Custom Decider Example
 
 ```python
-from ghostqa.engine.protocols import Decision
+from specterqa.engine.protocols import Decision
 
 class MyGPTDecider:
     """Use GPT-4 Vision as the AI brain instead of Claude."""
@@ -264,7 +264,7 @@ class MyGPTDecider:
 ### Using AIStepRunner
 
 ```python
-from ghostqa.engine.ai_step_runner import AIStepRunner
+from specterqa.engine.ai_step_runner import AIStepRunner
 
 runner = AIStepRunner(
     screenshot_fn=my_screenshot_fn,   # (step_id, action_idx, label) -> filepath
@@ -288,28 +288,28 @@ print(f"UX observations: {result.ux_observations}")
 
 ## MCP Server
 
-GhostQA ships a native MCP (Model Context Protocol) server. Any MCP-compatible agent host (Claude Desktop, Cursor, Cline, or a custom agent using the MCP SDK) can discover and invoke GhostQA as a structured tool without shelling out to the CLI.
+SpecterQA ships a native MCP (Model Context Protocol) server. Any MCP-compatible agent host (Claude Desktop, Cursor, Cline, or a custom agent using the MCP SDK) can discover and invoke SpecterQA as a structured tool without shelling out to the CLI.
 
-> **Security — directory access:** The `ghostqa_run` tool accepts a `directory` parameter that tells the server where to find the GhostQA project root. When `GHOSTQA_ALLOWED_DIRS` is **unset**, the server accepts any filesystem path the process can read. This is permissive by design for single-user local development, but it is a security risk if the MCP server is exposed to untrusted agents or shared infrastructure.
+> **Security — directory access:** The `specterqa_run` tool accepts a `directory` parameter that tells the server where to find the SpecterQA project root. When `SPECTERQA_ALLOWED_DIRS` is **unset**, the server accepts any filesystem path the process can read. This is permissive by design for single-user local development, but it is a security risk if the MCP server is exposed to untrusted agents or shared infrastructure.
 >
 > **In any shared, CI, or multi-user environment, set the allowlist:**
 >
 > ```bash
-> export GHOSTQA_ALLOWED_DIRS="/home/ci/projects:/workspace"
+> export SPECTERQA_ALLOWED_DIRS="/home/ci/projects:/workspace"
 > ```
 >
-> The server will reject any `directory` argument not under one of the listed prefixes and return a structured error. Without this variable set, a compromised or prompt-injected agent could point `ghostqa_run` at an attacker-controlled directory containing a malicious product YAML.
+> The server will reject any `directory` argument not under one of the listed prefixes and return a structured error. Without this variable set, a compromised or prompt-injected agent could point `specterqa_run` at an attacker-controlled directory containing a malicious product YAML.
 >
-> See [SECURITY_ADVISORY.md](../SECURITY_ADVISORY.md) (GHSA-GHOSTQA-001) for full details on the attack chain this mitigates.
+> See [SECURITY_ADVISORY.md](../SECURITY_ADVISORY.md) (GHSA-SPECTERQA-001) for full details on the attack chain this mitigates.
 
 ### Setup
 
-Add GhostQA to your MCP client config:
+Add SpecterQA to your MCP client config:
 
 ```json
 {
-  "ghostqa": {
-    "command": "ghostqa-mcp",
+  "specterqa": {
+    "command": "specterqa-mcp",
     "args": []
   }
 }
@@ -318,9 +318,9 @@ Add GhostQA to your MCP client config:
 Alternatively, run it directly:
 
 ```bash
-ghostqa-mcp
+specterqa-mcp
 # or
-python -m ghostqa.mcp
+python -m specterqa.mcp
 ```
 
 Both use stdio transport (stdin/stdout). No port configuration required.
@@ -329,22 +329,22 @@ Both use stdio transport (stdin/stdout). No port configuration required.
 
 | Tool | Description |
 |------|-------------|
-| `ghostqa_run` | Execute behavioral tests against a product. Synchronous — may take 45-300 seconds. Incurs Anthropic API costs (default budget $5.00). |
-| `ghostqa_list_products` | List configured products and available journeys. |
-| `ghostqa_get_results` | Read full structured results from a completed run by run ID. |
-| `ghostqa_init` | Initialize a new GhostQA project directory with sample configs. |
+| `specterqa_run` | Execute behavioral tests against a product. Synchronous — may take 45-300 seconds. Incurs Anthropic API costs (default budget $5.00). |
+| `specterqa_list_products` | List configured products and available journeys. |
+| `specterqa_get_results` | Read full structured results from a completed run by run ID. |
+| `specterqa_init` | Initialize a new SpecterQA project directory with sample configs. |
 
-### ghostqa_run Parameters
+### specterqa_run Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `product` | string | Yes | Product name (matches filename in `.ghostqa/products/`) |
+| `product` | string | Yes | Product name (matches filename in `.specterqa/products/`) |
 | `journey` | string | No | Journey ID to run. Runs all journeys if omitted. |
 | `level` | string | No | `smoke`, `standard`, or `thorough` |
 | `budget` | float | No | Cost cap in USD (default: 5.00) |
 | `directory` | string | No | Project root directory. Defaults to CWD. |
 
-### ghostqa_run Response
+### specterqa_run Response
 
 The MCP tool response uses the same JSON schema as `--output json`. Key fields:
 
@@ -365,13 +365,13 @@ The MCP tool response uses the same JSON schema as `--output json`. Key fields:
 
 ### Agent Workflow with MCP
 
-Agents can use GhostQA MCP tools to verify generated code:
+Agents can use SpecterQA MCP tools to verify generated code:
 
 ```
 1. Agent writes application code
 2. Agent starts dev server (e.g., npm run dev)
-3. Agent calls ghostqa_list_products to confirm product config exists
-4. Agent calls ghostqa_run with product name and budget cap
+3. Agent calls specterqa_list_products to confirm product config exists
+4. Agent calls specterqa_run with product name and budget cap
 5. Agent reads findings from the response
 6. If tests fail: agent fixes issues and loops back to step 4
 7. If tests pass: proceed to commit
@@ -383,12 +383,12 @@ This enables fully autonomous quality verification loops without human intervent
 
 ### Agent-Driven QA Loop
 
-An agent building a feature can use GhostQA to verify its work:
+An agent building a feature can use SpecterQA to verify its work:
 
 ```
 1. Agent writes code
 2. Agent starts dev server
-3. Agent runs: ghostqa run -p myapp --output json --level smoke
+3. Agent runs: specterqa run -p myapp --output json --level smoke
 4. If tests fail:
    a. Agent reads findings from JSON
    b. Agent fixes the issues
@@ -398,14 +398,14 @@ An agent building a feature can use GhostQA to verify its work:
 
 ### Scheduled Quality Checks
 
-Run GhostQA on a schedule to catch regressions:
+Run SpecterQA on a schedule to catch regressions:
 
 ```python
 import subprocess
 import json
 
 result = subprocess.run(
-    ["ghostqa", "run", "-p", "myapp", "--output", "json", "--budget", "5.00"],
+    ["specterqa", "run", "-p", "myapp", "--output", "json", "--budget", "5.00"],
     capture_output=True,
     text=True,
 )
@@ -416,17 +416,17 @@ if not data["passed"]:
     findings = data["findings"]
     for f in findings:
         if f["severity"] in ("block", "critical", "high"):
-            create_alert(f"GhostQA: [{f['severity']}] {f['description']}")
+            create_alert(f"SpecterQA: [{f['severity']}] {f['description']}")
 ```
 
 ### Pre-Deploy Gate
 
-Use GhostQA as a deployment gate:
+Use SpecterQA as a deployment gate:
 
 ```bash
-ghostqa run -p myapp --level standard --budget 10.00 --junit-xml results.xml
+specterqa run -p myapp --level standard --budget 10.00 --junit-xml results.xml
 if [ $? -ne 0 ]; then
-    echo "GhostQA behavioral tests failed. Blocking deploy."
+    echo "SpecterQA behavioral tests failed. Blocking deploy."
     exit 1
 fi
 # Proceed with deployment
@@ -438,10 +438,10 @@ When integrating programmatically, handle these exceptions:
 
 | Exception | When | What to Do |
 |-----------|------|------------|
-| `GhostQAConfigError` | Bad config, missing files | Fix config, check file paths |
+| `SpecterQAConfigError` | Bad config, missing files | Fix config, check file paths |
 | `BudgetExceededError` | Run cost hit the cap | Increase budget or reduce test scope |
 | `CumulativeBudgetExceededError` | Daily/monthly cap hit | Wait for next period or increase caps |
-| `ImportError` | Playwright not installed | Run `ghostqa install` |
+| `ImportError` | Playwright not installed | Run `specterqa install` |
 | `AgentStuckError` | AI couldn't figure out what to do | Check app state, simplify the goal |
 
-All of these are catchable Python exceptions from the `ghostqa` package.
+All of these are catchable Python exceptions from the `specterqa` package.

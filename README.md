@@ -1,20 +1,20 @@
-# GhostQA
+# SpecterQA
 
-[![PyPI version](https://img.shields.io/pypi/v/ghostqa.svg)](https://pypi.org/project/ghostqa/)
+[![PyPI version](https://img.shields.io/pypi/v/specterqa.svg)](https://pypi.org/project/specterqa/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/SyncTek-LLC/ghostqa/workflows/CI/badge.svg)](https://github.com/SyncTek-LLC/ghostqa/actions)
-[![MCP Compatible](https://img.shields.io/badge/MCP-compatible-blueviolet)](https://github.com/SyncTek-LLC/ghostqa/blob/main/docs/for-agents.md)
+[![CI](https://github.com/SyncTek-LLC/specterqa/workflows/CI/badge.svg)](https://github.com/SyncTek-LLC/specterqa/actions)
+[![MCP Compatible](https://img.shields.io/badge/MCP-compatible-blueviolet)](https://github.com/SyncTek-LLC/specterqa/blob/main/docs/for-agents.md)
 
 **AI personas walk your app so real users don't trip.**
 
-GhostQA sends AI personas through your application — they look at the screen, decide what to do, and interact like real humans. No test scripts. No selectors. You describe personas and journeys in YAML, and GhostQA handles the rest.
+SpecterQA sends AI personas through your application — they look at the screen, decide what to do, and interact like real humans. No test scripts. No selectors. You describe personas and journeys in YAML, and SpecterQA handles the rest.
 
 ```
-$ ghostqa run -p myapp
+$ specterqa run -p myapp
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ GhostQA Run                                                    ┃
+┃ SpecterQA Run                                                    ┃
 ┃ Product: myapp   Budget: $5.00   Viewport: 1280x720            ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
@@ -34,19 +34,19 @@ $ ghostqa run -p myapp
 
 ## What is this?
 
-Traditional E2E tests are brittle. You write selectors, they break. You maintain scripts, they rot. GhostQA takes a different approach: AI vision models look at your actual UI and navigate it the way a person would.
+Traditional E2E tests are brittle. You write selectors, they break. You maintain scripts, they rot. SpecterQA takes a different approach: AI vision models look at your actual UI and navigate it the way a person would.
 
-You define **personas** (who is using your app) and **journeys** (what they're trying to do). GhostQA's engine takes a screenshot, sends it to a Claude vision model, gets back a decision ("click this button", "fill this field"), executes it via Playwright, takes another screenshot, and repeats until the goal is achieved or something goes wrong.
+You define **personas** (who is using your app) and **journeys** (what they're trying to do). SpecterQA's engine takes a screenshot, sends it to a Claude vision model, gets back a decision ("click this button", "fill this field"), executes it via Playwright, takes another screenshot, and repeats until the goal is achieved or something goes wrong.
 
 When something goes wrong, you get evidence: screenshots, UX observations, cost breakdowns, and findings categorized by severity.
 
 ## Quick Start
 
 ```bash
-pip install ghostqa
-ghostqa install          # downloads Playwright browsers
-ghostqa init             # scaffolds .ghostqa/ with sample configs
-ghostqa run -p demo      # runs the sample journey
+pip install specterqa
+specterqa install          # downloads Playwright browsers
+specterqa init             # scaffolds .specterqa/ with sample configs
+specterqa run -p demo      # runs the sample journey
 ```
 
 You'll need an Anthropic API key:
@@ -90,7 +90,7 @@ The persona's profile shapes how the AI behaves. A "tech-savvy developer" explor
 
 ## Configuration
 
-GhostQA uses three types of YAML config files, all living in `.ghostqa/`:
+SpecterQA uses three types of YAML config files, all living in `.specterqa/`:
 
 ### Product (`products/myapp.yaml`)
 
@@ -185,17 +185,17 @@ See [docs/configuration.md](docs/configuration.md) for the full reference.
 
 ## CI Integration
 
-GhostQA is built for CI. It runs headless by default and returns proper exit codes.
+SpecterQA is built for CI. It runs headless by default and returns proper exit codes.
 
 ```bash
 # Basic CI run
-ghostqa run -p myapp --junit-xml results.xml
+specterqa run -p myapp --junit-xml results.xml
 
 # Smoke test (runs first scenario only, fast)
-ghostqa run -p myapp --level smoke --budget 2.00
+specterqa run -p myapp --level smoke --budget 2.00
 
 # JSON output for programmatic consumption
-ghostqa run -p myapp --output json > results.json
+specterqa run -p myapp --output json > results.json
 ```
 
 **Exit codes:**
@@ -208,7 +208,7 @@ See [docs/ci-integration.md](docs/ci-integration.md) for GitHub Actions, GitLab 
 
 ## Cost
 
-GhostQA uses Anthropic's Claude API. Every run costs money. Here's what to expect:
+SpecterQA uses Anthropic's Claude API. Every run costs money. Here's what to expect:
 
 | Model | Role | Input (per 1M tokens) | Output (per 1M tokens) |
 |-------|------|-----------------------|------------------------|
@@ -229,7 +229,7 @@ See [docs/cost-guide.md](docs/cost-guide.md) for detailed cost breakdowns and bu
 
 ## Multi-Platform
 
-GhostQA isn't web-only. The same persona/journey YAML format works across platforms:
+SpecterQA isn't web-only. The same persona/journey YAML format works across platforms:
 
 **Web apps** (default) -- Uses Playwright for browser automation.
 
@@ -257,17 +257,17 @@ product:
 Native and simulator support require the `native` optional dependency:
 
 ```bash
-pip install ghostqa[native]
+pip install specterqa[native]
 ```
 
 ## For AI Agents
 
-If you're an AI agent or building agent tooling, GhostQA provides structured interfaces for programmatic use.
+If you're an AI agent or building agent tooling, SpecterQA provides structured interfaces for programmatic use.
 
 ### CLI with JSON output
 
 ```bash
-ghostqa run -p myapp --output json
+specterqa run -p myapp --output json
 ```
 
 Returns structured JSON to stdout:
@@ -291,29 +291,29 @@ Returns structured JSON to stdout:
 ### Python API
 
 ```python
-from ghostqa.config import GhostQAConfig
-from ghostqa.engine.orchestrator import GhostQAOrchestrator
+from specterqa.config import SpecterQAConfig
+from specterqa.engine.orchestrator import SpecterQAOrchestrator
 
-config = GhostQAConfig()
-config.project_dir = Path(".ghostqa")
-config.products_dir = Path(".ghostqa/products")
-config.personas_dir = Path(".ghostqa/personas")
-config.journeys_dir = Path(".ghostqa/journeys")
-config.evidence_dir = Path(".ghostqa/evidence")
+config = SpecterQAConfig()
+config.project_dir = Path(".specterqa")
+config.products_dir = Path(".specterqa/products")
+config.personas_dir = Path(".specterqa/personas")
+config.journeys_dir = Path(".specterqa/journeys")
+config.evidence_dir = Path(".specterqa/evidence")
 config.anthropic_api_key = "sk-ant-..."
 config.budget = 5.00
 config.headless = True
 
-orchestrator = GhostQAOrchestrator(config)
+orchestrator = SpecterQAOrchestrator(config)
 report_md, all_passed = orchestrator.run(product="myapp", level="smoke")
 ```
 
 ### Federated Protocol
 
-GhostQA exposes a `protocols.py` module with Python Protocol classes (`AIDecider`, `ActionExecutor`) that let you swap in your own AI model or action backend:
+SpecterQA exposes a `protocols.py` module with Python Protocol classes (`AIDecider`, `ActionExecutor`) that let you swap in your own AI model or action backend:
 
 ```python
-from ghostqa.engine.protocols import AIDecider, Decision
+from specterqa.engine.protocols import AIDecider, Decision
 
 class MyCustomDecider:
     def decide(self, goal, screenshot_base64, **kwargs) -> Decision:
@@ -323,14 +323,14 @@ class MyCustomDecider:
 
 ### MCP Server
 
-GhostQA ships an MCP (Model Context Protocol) server. Any MCP-compatible agent (Claude Desktop, Cursor, Cline, custom agent tooling) can discover and invoke GhostQA as a tool -- run tests, read results, manage configs -- without shelling out to the CLI.
+SpecterQA ships an MCP (Model Context Protocol) server. Any MCP-compatible agent (Claude Desktop, Cursor, Cline, custom agent tooling) can discover and invoke SpecterQA as a tool -- run tests, read results, manage configs -- without shelling out to the CLI.
 
 **Add to your MCP client config (`claude_desktop_config.json` or equivalent):**
 
 ```json
 {
-  "ghostqa": {
-    "command": "ghostqa-mcp",
+  "specterqa": {
+    "command": "specterqa-mcp",
     "args": []
   }
 }
@@ -340,22 +340,22 @@ GhostQA ships an MCP (Model Context Protocol) server. Any MCP-compatible agent (
 
 | Tool | Description |
 |------|-------------|
-| `ghostqa_run` | Execute behavioral tests against a product. Synchronous — may take 45-300s. Incurs API costs (default budget: $5.00). |
-| `ghostqa_list_products` | List configured products and their available journeys |
-| `ghostqa_get_results` | Retrieve full structured results from a previous run by run ID |
-| `ghostqa_init` | Initialize a new GhostQA project directory |
+| `specterqa_run` | Execute behavioral tests against a product. Synchronous — may take 45-300s. Incurs API costs (default budget: $5.00). |
+| `specterqa_list_products` | List configured products and their available journeys |
+| `specterqa_get_results` | Retrieve full structured results from a previous run by run ID |
+| `specterqa_init` | Initialize a new SpecterQA project directory |
 
 See [docs/for-agents.md](docs/for-agents.md) for the full programmatic API reference and MCP integration details.
 
 ## Security
 
-**Directory access:** When the environment variable `GHOSTQA_ALLOWED_DIRS` is unset, the GhostQA MCP server permits the `directory` parameter of `ghostqa_run` to point at **any path on the filesystem** accessible to the process. In shared or multi-user environments — or anywhere the MCP server is exposed to untrusted agents — you should set this variable to an explicit allowlist:
+**Directory access:** When the environment variable `SPECTERQA_ALLOWED_DIRS` is unset, the SpecterQA MCP server permits the `directory` parameter of `specterqa_run` to point at **any path on the filesystem** accessible to the process. In shared or multi-user environments — or anywhere the MCP server is exposed to untrusted agents — you should set this variable to an explicit allowlist:
 
 ```bash
-export GHOSTQA_ALLOWED_DIRS="/home/user/projects:/ci/workspaces"
+export SPECTERQA_ALLOWED_DIRS="/home/user/projects:/ci/workspaces"
 ```
 
-When set, the MCP server rejects any `directory` value that is not under one of the listed prefixes. This mitigates the MCP directory traversal vector described in [SECURITY_ADVISORY.md](SECURITY_ADVISORY.md) (GHSA-GHOSTQA-001).
+When set, the MCP server rejects any `directory` value that is not under one of the listed prefixes. This mitigates the MCP directory traversal vector described in [SECURITY_ADVISORY.md](SECURITY_ADVISORY.md) (GHSA-SPECTERQA-001).
 
 **Command injection fix (v0.2.1):** The `check_command` field in product YAML service definitions has been removed. It was the source of a critical command injection vulnerability. Precondition checks are now limited to TCP connectivity and HTTP health endpoint checks, which are safe. See [SECURITY_ADVISORY.md](SECURITY_ADVISORY.md) for full details.
 
@@ -367,22 +367,22 @@ When set, the MCP server rejects any `directory` value that is not under one of 
 
 Be honest with yourself about what this is and isn't:
 
-- **Requires an Anthropic API key.** No API key, no testing. There's no free tier built into GhostQA itself.
+- **Requires an Anthropic API key.** No API key, no testing. There's no free tier built into SpecterQA itself.
 - **Costs money.** Every run makes API calls. A typical 3-step journey costs $0.30-0.60. Budget enforcement prevents surprises, but the meter is always running.
 - **Vision models aren't perfect.** The AI sometimes misreads small text, clicks the wrong element, or gets confused by complex layouts. It's good, not infallible. You'll occasionally see false positives and false negatives.
-- **Not a replacement for unit tests.** GhostQA tests behavioral UX flows. It doesn't test your business logic, data integrity, or edge case handling. Use it alongside your existing test suite, not instead of it.
-- **macOS native testing requires pyobjc.** The `ghostqa[native]` extra pulls in pyobjc packages (~200MB). Only needed for native macOS and iOS Simulator testing.
-- **Alpha software.** Version 0.2.0. APIs may change. File structure may change. Expect rough edges.
+- **Not a replacement for unit tests.** SpecterQA tests behavioral UX flows. It doesn't test your business logic, data integrity, or edge case handling. Use it alongside your existing test suite, not instead of it.
+- **macOS native testing requires pyobjc.** The `specterqa[native]` extra pulls in pyobjc packages (~200MB). Only needed for native macOS and iOS Simulator testing.
+- **Alpha software.** Version 0.3.0. APIs may change. File structure may change. Expect rough edges.
 - **Single-persona per journey (for now).** Multi-persona concurrent testing (e.g., simulating a chat between two users) is on the roadmap but not yet supported.
 - **Deterministic reproduction is hard.** Because the AI makes decisions at runtime, the exact sequence of actions varies between runs. Same journey, same persona, slightly different clicks. This is by design (it catches more issues) but makes exact reproduction tricky.
 
 ## Contributing
 
-Contributions welcome. The repo is at [github.com/SyncTek-LLC/ghostqa](https://github.com/SyncTek-LLC/ghostqa).
+Contributions welcome. The repo is at [github.com/SyncTek-LLC/specterqa](https://github.com/SyncTek-LLC/specterqa).
 
 ```bash
-git clone https://github.com/SyncTek-LLC/ghostqa.git
-cd ghostqa
+git clone https://github.com/SyncTek-LLC/specterqa.git
+cd specterqa
 pip install -e ".[dev]"
 pytest
 ```
@@ -395,6 +395,6 @@ MIT -- see [LICENSE](LICENSE) for details.
 
 ---
 
-<!-- mcp-name: io.github.SyncTekLLC/ghostqa -->
+<!-- mcp-name: io.github.SyncTekLLC/specterqa -->
 
 Built by [SyncTek LLC](https://github.com/SyncTek-LLC).

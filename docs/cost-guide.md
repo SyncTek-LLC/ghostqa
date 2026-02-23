@@ -1,10 +1,10 @@
 # Cost Guide
 
-GhostQA uses the Anthropic Claude API for its vision-based testing. Every run costs money. This guide helps you understand what you'll spend and how to control it.
+SpecterQA uses the Anthropic Claude API for its vision-based testing. Every run costs money. This guide helps you understand what you'll spend and how to control it.
 
 ## How Costs Work
 
-Each time GhostQA takes an action, it:
+Each time SpecterQA takes an action, it:
 
 1. Takes a screenshot (~200-500KB PNG)
 2. Sends the screenshot + context to a Claude vision model
@@ -14,7 +14,7 @@ You pay for the tokens in and out of each API call. Screenshots are the expensiv
 
 ## Model Pricing
 
-GhostQA uses tiered model routing to keep costs down:
+SpecterQA uses tiered model routing to keep costs down:
 
 | Model | Input (per 1M tokens) | Output (per 1M tokens) | Used For |
 |-------|----------------------|------------------------|----------|
@@ -54,7 +54,7 @@ These are real-world numbers from production runs:
 - **Complex forms** -- Fill actions always use Sonnet. A form with 10 fields costs more than a form with 3.
 - **Getting stuck** -- When the AI gets stuck, the engine escalates to the stronger model and retries. A 3-action stuck loop can cost 5-10x a normal action.
 - **Large pages** -- Screenshots of content-heavy pages produce more tokens. A dashboard with 50 elements costs more to interpret than a simple login page.
-- **Conversation history** -- The AI maintains conversation history within a step. Later actions in a long step include more history tokens. GhostQA mitigates this by compacting old screenshots (replacing base64 data with text summaries), but costs still grow as actions accumulate.
+- **Conversation history** -- The AI maintains conversation history within a step. Later actions in a long step include more history tokens. SpecterQA mitigates this by compacting old screenshots (replacing base64 data with text summaries), but costs still grow as actions accumulate.
 
 ### What Keeps Costs Down
 
@@ -66,14 +66,14 @@ These are real-world numbers from production runs:
 
 ## Budget Enforcement
 
-GhostQA has three layers of budget enforcement:
+SpecterQA has three layers of budget enforcement:
 
 ### Per-Run Budget
 
 Set via CLI or config. The engine raises `BudgetExceededError` and stops immediately if exceeded.
 
 ```bash
-ghostqa run -p myapp --budget 5.00
+specterqa run -p myapp --budget 5.00
 ```
 
 Or in `products/myapp.yaml`:
@@ -88,7 +88,7 @@ When the warning threshold is hit, you'll see it in the logs. When the hard cap 
 
 ### Per-Day Budget
 
-Tracked in `.ghostqa/costs.jsonl`. Before each run, GhostQA sums today's costs and refuses to start if the daily cap is exceeded.
+Tracked in `.specterqa/costs.jsonl`. Before each run, SpecterQA sums today's costs and refuses to start if the daily cap is exceeded.
 
 ```yaml
 cost_limits:
@@ -106,7 +106,7 @@ cost_limits:
 
 ### The Cost Ledger
 
-Every completed run appends an entry to `.ghostqa/costs.jsonl`:
+Every completed run appends an entry to `.specterqa/costs.jsonl`:
 
 ```json
 {"timestamp":"2026-02-22T14:31:37+00:00","run_id":"GQA-RUN-20260222-143052-a1b2","product":"myapp","level":"smoke","cost_usd":0.4521}
@@ -125,9 +125,9 @@ This file is the source of truth for cumulative budget checks. Don't delete it u
 
 ### For Local Development
 
-1. **Run Ollama locally.** Install [Ollama](https://ollama.ai) and pull `llava:13b`. GhostQA routes simple navigation there automatically.
+1. **Run Ollama locally.** Install [Ollama](https://ollama.ai) and pull `llava:13b`. SpecterQA routes simple navigation there automatically.
 2. **Use `--level smoke` while iterating.** Run the full suite only when you think you're done.
-3. **Watch the budget summary.** After each run, GhostQA prints the total cost. If a journey consistently costs more than expected, check for stuck loops.
+3. **Watch the budget summary.** After each run, SpecterQA prints the total cost. If a journey consistently costs more than expected, check for stuck loops.
 
 ### For Adversarial/Security Testing
 
@@ -176,10 +176,10 @@ Every run prints a summary:
 
 ```python
 from pathlib import Path
-from ghostqa.engine.cost_tracker import CostTracker
+from specterqa.engine.cost_tracker import CostTracker
 
 status = CostTracker.check_cumulative_budget(
-    base_dir=Path(".ghostqa"),
+    base_dir=Path(".specterqa"),
     per_day_usd=20.00,
     per_month_usd=200.00,
 )
@@ -206,17 +206,17 @@ This is approximate. Actual costs depend on page complexity, how many actions th
 
 ## FAQ
 
-**Q: Can I use GhostQA without paying for API calls?**
+**Q: Can I use SpecterQA without paying for API calls?**
 
-If you run a local Ollama model (llava:13b), GhostQA can route simple actions there for free. But the initial assessment and form fills still need a capable vision model. There's no fully-free mode today.
+If you run a local Ollama model (llava:13b), SpecterQA can route simple actions there for free. But the initial assessment and form fills still need a capable vision model. There's no fully-free mode today.
 
 **Q: What happens if my API key has no credits?**
 
-The Anthropic SDK will return an error. GhostQA catches it and reports it as an infrastructure failure (exit code 3). No partial results.
+The Anthropic SDK will return an error. SpecterQA catches it and reports it as an infrastructure failure (exit code 3). No partial results.
 
 **Q: Can I use a different API provider?**
 
-Not out of the box. GhostQA uses the Anthropic Python SDK directly. You can implement the `AIDecider` protocol with any model provider and use the `AIStepRunner` directly -- see [for-agents.md](for-agents.md).
+Not out of the box. SpecterQA uses the Anthropic Python SDK directly. You can implement the `AIDecider` protocol with any model provider and use the `AIStepRunner` directly -- see [for-agents.md](for-agents.md).
 
 **Q: Why is my run more expensive than expected?**
 

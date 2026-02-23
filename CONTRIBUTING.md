@@ -1,14 +1,14 @@
-# Contributing to GhostQA
+# Contributing to SpecterQA
 
-Thanks for your interest in contributing to GhostQA! This guide will help you get started.
+Thanks for your interest in contributing to SpecterQA! This guide will help you get started.
 
 ## Development Setup
 
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/SyncTek-LLC/ghostqa.git
-   cd ghostqa
+   git clone https://github.com/SyncTek-LLC/specterqa.git
+   cd specterqa
    ```
 
 2. **Create a virtual environment**
@@ -38,7 +38,7 @@ Thanks for your interest in contributing to GhostQA! This guide will help you ge
 pytest tests/ -v
 
 # Run with coverage
-pytest tests/ -v --cov=src/ghostqa --cov-report=term-missing
+pytest tests/ -v --cov=src/specterqa --cov-report=term-missing
 
 # Skip integration tests (which require a running app and API key)
 pytest tests/ -v -m "not integration"
@@ -65,7 +65,7 @@ ruff format src/
 Type checking with mypy:
 
 ```bash
-mypy src/ghostqa
+mypy src/specterqa
 ```
 
 ## Submitting Changes
@@ -83,12 +83,12 @@ mypy src/ghostqa
 
 ## Reporting Bugs
 
-Use the [bug report template](https://github.com/SyncTek-LLC/ghostqa/issues/new?template=bug_report.yml) on GitHub Issues.
+Use the [bug report template](https://github.com/SyncTek-LLC/specterqa/issues/new?template=bug_report.yml) on GitHub Issues.
 
 ## Requesting Features
 
-Use the [feature request template](https://github.com/SyncTek-LLC/ghostqa/issues/new?template=feature_request.yml) on GitHub Issues.
+Use the [feature request template](https://github.com/SyncTek-LLC/specterqa/issues/new?template=feature_request.yml) on GitHub Issues.
 
 ## License
 
-By contributing to GhostQA, you agree that your contributions will be licensed under the [MIT License](LICENSE). All contributions are subject to this project's license terms.
+By contributing to SpecterQA, you agree that your contributions will be licensed under the [MIT License](LICENSE). All contributions are subject to this project's license terms.

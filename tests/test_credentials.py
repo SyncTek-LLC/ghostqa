@@ -1,4 +1,4 @@
-"""Unit tests for ghostqa.credentials — API key resolution and masking."""
+"""Unit tests for specterqa.credentials — API key resolution and masking."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from unittest import mock
 import pytest
 import yaml
 
-from ghostqa.config import GhostQAConfigError
-from ghostqa.credentials import (
+from specterqa.config import SpecterQAConfigError
+from specterqa.credentials import (
     _parse_env_file,
     _parse_yaml_key,
     mask_key,
@@ -114,7 +114,7 @@ class TestResolveApiKeyFromYaml:
 # ---------------------------------------------------------------------------
 
 class TestResolveApiKeyRaises:
-    """resolve_api_key() should raise GhostQAConfigError when no key is found."""
+    """resolve_api_key() should raise SpecterQAConfigError when no key is found."""
 
     def test_raises_when_no_key_available(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -122,10 +122,10 @@ class TestResolveApiKeyRaises:
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.chdir(tmp_path)
 
-        # Mock home to avoid reading real ~/.ghostqa/config.yaml
+        # Mock home to avoid reading real ~/.specterqa/config.yaml
         monkeypatch.setattr(Path, "home", lambda: tmp_path / "fakehome")
 
-        with pytest.raises(GhostQAConfigError, match="ANTHROPIC_API_KEY not set"):
+        with pytest.raises(SpecterQAConfigError, match="ANTHROPIC_API_KEY not set"):
             resolve_api_key()
 
 

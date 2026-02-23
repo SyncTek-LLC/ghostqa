@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.SyncTekLLC/ghostqa",
-  "title": "GhostQA",
+  "name": "io.github.SyncTekLLC/specterqa",
+  "title": "SpecterQA",
   "description": "AI personas navigate your web app in real browsers, find bugs and UX issues. No scripts needed.",
   "repository": {
-    "url": "https://github.com/SyncTek-LLC/ghostqa",
+    "url": "https://github.com/SyncTek-LLC/specterqa",
     "source": "github"
   },
-  "version": "0.2.2",
+  "version": "0.3.0",
   "packages": [
     {
       "registryType": "pypi",
-      "identifier": "ghostqa",
-      "version": "0.2.2",
+      "identifier": "specterqa",
+      "version": "0.3.0",
       "transport": {
         "type": "stdio"
       },
@@ -29,7 +29,7 @@
           "isRequired": false,
           "format": "string",
           "isSecret": false,
-          "name": "GHOSTQA_ALLOWED_DIRS"
+          "name": "SPECTERQA_ALLOWED_DIRS"
         }
       ]
     }

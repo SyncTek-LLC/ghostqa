@@ -1,4 +1,4 @@
-"""Shared fixtures for GhostQA unit tests."""
+"""Shared fixtures for SpecterQA unit tests."""
 
 from __future__ import annotations
 
@@ -9,15 +9,15 @@ import yaml
 
 
 # ---------------------------------------------------------------------------
-# Fixture: temporary project directory with .ghostqa/ structure
+# Fixture: temporary project directory with .specterqa/ structure
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
 def tmp_project_dir(tmp_path: Path) -> Path:
-    """Create a temporary .ghostqa/ project directory with full structure."""
-    ghostqa_dir = tmp_path / ".ghostqa"
+    """Create a temporary .specterqa/ project directory with full structure."""
+    specterqa_dir = tmp_path / ".specterqa"
     for sub in ("products", "personas", "journeys", "evidence"):
-        (ghostqa_dir / sub).mkdir(parents=True)
+        (specterqa_dir / sub).mkdir(parents=True)
 
     # Write a minimal valid config
     config_data = {
@@ -26,11 +26,11 @@ def tmp_project_dir(tmp_path: Path) -> Path:
         "viewport": {"width": 1280, "height": 720},
         "timeout": 600,
     }
-    (ghostqa_dir / "config.yaml").write_text(
+    (specterqa_dir / "config.yaml").write_text(
         yaml.dump(config_data, default_flow_style=False), encoding="utf-8"
     )
 
-    return ghostqa_dir
+    return specterqa_dir
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ def tmp_project_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def sample_config_yaml() -> str:
-    """Return a valid GhostQA config.yaml as a string."""
+    """Return a valid SpecterQA config.yaml as a string."""
     return """\
 budget: 5.00
 headless: true

@@ -1,5 +1,5 @@
 name: demo
-display_name: "GhostQA Demo App"
+display_name: "SpecterQA Demo App"
 base_url: "http://localhost:5000"
 services:
   frontend:

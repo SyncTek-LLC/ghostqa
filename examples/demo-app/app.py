@@ -1,6 +1,6 @@
-"""Minimal Flask demo app for GhostQA testing.
+"""Minimal Flask demo app for SpecterQA testing.
 
-This app provides a simple signup flow that GhostQA can test against:
+This app provides a simple signup flow that SpecterQA can test against:
   - Homepage with welcome message and nav
   - Signup page with email/password form
   - Dashboard page shown after successful signup
@@ -12,7 +12,7 @@ Visit: http://localhost:5000
 from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
-app.secret_key = "ghostqa-demo-secret-key"
+app.secret_key = "specterqa-demo-secret-key"
 
 
 @app.route("/")

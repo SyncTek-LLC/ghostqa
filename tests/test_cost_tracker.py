@@ -1,4 +1,4 @@
-"""Unit tests for ghostqa.engine.cost_tracker — CostTracker and cost accounting."""
+"""Unit tests for specterqa.engine.cost_tracker — CostTracker and cost accounting."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ghostqa.engine.cost_tracker import (
+from specterqa.engine.cost_tracker import (
     APICall,
     BudgetExceededError,
     CostSummary,
@@ -15,7 +15,7 @@ from ghostqa.engine.cost_tracker import (
     MODEL_PRICING,
     _FALLBACK_MODEL,
 )
-from ghostqa.models import PRICING
+from specterqa.models import PRICING
 
 
 # ---------------------------------------------------------------------------

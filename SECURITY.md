@@ -2,7 +2,7 @@
 
 ## Active Security Advisory
 
-**GHSA-GHOSTQA-001 (Critical):** Command injection vulnerability in `_check_preconditions` affecting v0.2.0 and all earlier versions.
+**GHSA-SPECTERQA-001 (Critical):** Command injection vulnerability in `_check_preconditions` affecting v0.2.0 and all earlier versions.
 
 **Workaround (immediate):** Remove `check_command` from all product YAML files.
 **Fix:** Upgrade to v0.2.1 when released.
@@ -51,7 +51,7 @@ We will keep you informed of our progress. If the issue is accepted, we will:
 
 The following are in scope for security reports:
 
-- The `ghostqa` Python package (code in `src/`)
+- The `specterqa` Python package (code in `src/`)
 - CLI command injection or path traversal
 - Unsafe handling of API keys or credentials
 - Persona YAML injection leading to unintended behavior
@@ -67,4 +67,4 @@ The following are out of scope:
 - Never commit your `.env` file or API keys to version control
 - Use environment variables or a secrets manager for `ANTHROPIC_API_KEY`
 - Review persona YAML files from untrusted sources before running them
-- Keep GhostQA and its dependencies updated
+- Keep SpecterQA and its dependencies updated

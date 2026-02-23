@@ -1,4 +1,4 @@
-"""Unit tests for ghostqa.engine.report_generator — Finding, StepReport, RunResult, ReportGenerator."""
+"""Unit tests for specterqa.engine.report_generator — Finding, StepReport, RunResult, ReportGenerator."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-from ghostqa.engine.report_generator import (
+from specterqa.engine.report_generator import (
     Finding,
     ReportGenerator,
     RunResult,
@@ -187,7 +187,7 @@ class TestReportGenerator:
     def test_generate_contains_header(self):
         rr = _make_run_result()
         report = ReportGenerator().generate(rr)
-        assert "# GhostQA Report:" in report
+        assert "# SpecterQA Report:" in report
         assert rr.scenario_name in report
         assert rr.run_id in report
 

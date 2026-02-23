@@ -1,11 +1,11 @@
 # Configuration Reference
 
-GhostQA uses YAML files organized under a `.ghostqa/` project directory. This document covers every configuration option.
+SpecterQA uses YAML files organized under a `.specterqa/` project directory. This document covers every configuration option.
 
 ## Project Structure
 
 ```
-.ghostqa/
+.specterqa/
   config.yaml           # Global project settings
   products/
     myapp.yaml          # Product definition
@@ -17,11 +17,11 @@ GhostQA uses YAML files organized under a `.ghostqa/` project directory. This do
     GQA-RUN-*/          # Run artifacts (auto-generated)
 ```
 
-Run `ghostqa init` to scaffold this structure with sample files.
+Run `specterqa init` to scaffold this structure with sample files.
 
 ## Global Config (`config.yaml`)
 
-The project-level config lives at `.ghostqa/config.yaml`. All fields are optional -- CLI flags and defaults fill in the gaps.
+The project-level config lives at `.specterqa/config.yaml`. All fields are optional -- CLI flags and defaults fill in the gaps.
 
 ```yaml
 # Default budget per run (USD). Overridden by --budget flag.
@@ -42,7 +42,7 @@ timeout: 600
 # Uncomment if you prefer to store it in config rather than env.
 # anthropic_api_key: sk-ant-...
 
-# Override default directories (relative to .ghostqa/).
+# Override default directories (relative to .specterqa/).
 # products_dir: products
 # personas_dir: personas
 # journeys_dir: journeys
@@ -52,14 +52,14 @@ timeout: 600
 ### API Key Resolution Order
 
 1. `ANTHROPIC_API_KEY` environment variable
-2. `anthropic_api_key` in `.ghostqa/config.yaml`
+2. `anthropic_api_key` in `.specterqa/config.yaml`
 3. `.env` file in project root (loaded via python-dotenv)
 
 ## Product Config
 
 Products define what you're testing -- the app URL, available services, viewports, and cost limits.
 
-**File location:** `.ghostqa/products/{name}.yaml`
+**File location:** `.specterqa/products/{name}.yaml`
 
 ```yaml
 product:
@@ -129,7 +129,7 @@ product:
 
 Personas define who is using your app. The AI uses the persona profile to shape its behavior -- what it looks at, how patient it is, and what kind of issues it notices.
 
-**File location:** `.ghostqa/personas/{name}.yaml`
+**File location:** `.specterqa/personas/{name}.yaml`
 
 ```yaml
 persona:
@@ -182,7 +182,7 @@ persona:
 
 Journeys (also called scenarios) define what the persona does -- a sequence of goal-oriented steps.
 
-**File location:** `.ghostqa/journeys/{name}.yaml`
+**File location:** `.specterqa/journeys/{name}.yaml`
 
 ```yaml
 scenario:
@@ -288,6 +288,6 @@ Increase these for apps with slow animations or delayed state changes. Decrease 
 | Variable | Description |
 |----------|-------------|
 | `ANTHROPIC_API_KEY` | Anthropic API key (highest priority) |
-| `GHOSTQA_PROJECT_DIR` | Override project directory location |
-| `GHOSTQA_HEADLESS` | Override headless mode (`true`/`false`) |
-| `GHOSTQA_BUDGET` | Override default budget |
+| `SPECTERQA_PROJECT_DIR` | Override project directory location |
+| `SPECTERQA_HEADLESS` | Override headless mode (`true`/`false`) |
+| `SPECTERQA_BUDGET` | Override default budget |

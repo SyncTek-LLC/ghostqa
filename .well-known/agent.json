@@ -1,9 +1,9 @@
 {
-  "name": "GhostQA",
+  "name": "SpecterQA",
   "description": "AI behavioral testing for web and native applications. AI personas navigate your app in real browser sessions and report UX issues, broken flows, and errors — no test scripts required.",
-  "version": "0.2.0",
-  "url": "https://github.com/SyncTek-LLC/ghostqa",
-  "homepage": "https://github.com/SyncTek-LLC/ghostqa",
+  "version": "0.3.0",
+  "url": "https://github.com/SyncTek-LLC/specterqa",
+  "homepage": "https://github.com/SyncTek-LLC/specterqa",
   "license": "MIT",
   "capabilities": [
     "behavioral_testing",
@@ -14,8 +14,8 @@
   ],
   "invocation": {
     "cli": {
-      "command": "ghostqa run -p <product>",
-      "install": "pip install ghostqa",
+      "command": "specterqa run -p <product>",
+      "install": "pip install specterqa",
       "json_output_flag": "--output json",
       "exit_codes": {
         "0": "all_passed",
@@ -25,16 +25,16 @@
       }
     },
     "python": {
-      "import": "from ghostqa.engine.orchestrator import GhostQAOrchestrator",
-      "package": "ghostqa",
-      "entry_class": "ghostqa.engine.orchestrator.GhostQAOrchestrator"
+      "import": "from specterqa.engine.orchestrator import SpecterQAOrchestrator",
+      "package": "specterqa",
+      "entry_class": "specterqa.engine.orchestrator.SpecterQAOrchestrator"
     },
     "mcp": {
-      "command": "ghostqa-mcp",
+      "command": "specterqa-mcp",
       "transport": "stdio",
       "config_example": {
-        "ghostqa": {
-          "command": "ghostqa-mcp",
+        "specterqa": {
+          "command": "specterqa-mcp",
           "args": []
         }
       }
@@ -46,14 +46,14 @@
     "typical_range_usd": [0.30, 1.50],
     "budget_enforcement": true,
     "default_budget_usd": 5.00,
-    "notes": "ghostqa_run MCP calls are synchronous and may take 45-300 seconds. Budget cap enforced per run."
+    "notes": "specterqa_run MCP calls are synchronous and may take 45-300 seconds. Budget cap enforced per run."
   },
   "tools": [
     {
-      "name": "ghostqa_run",
+      "name": "specterqa_run",
       "description": "Run behavioral tests on a product. AI personas navigate the app and report UX issues. Synchronous — may take 45-300s. Incurs Anthropic API costs (default budget: $5.00).",
       "inputs": {
-        "product": "string (required) — product name matching .ghostqa/products/<name>.yaml",
+        "product": "string (required) — product name matching .specterqa/products/<name>.yaml",
         "journey": "string (optional) — journey ID; runs all journeys if omitted",
         "level": "string (optional) — smoke | standard | thorough",
         "budget": "float (optional) — cost cap in USD, default 5.00",
@@ -62,7 +62,7 @@
       "outputs": "JSON with passed, run_id, step_reports, findings, cost_usd, cost_summary"
     },
     {
-      "name": "ghostqa_list_products",
+      "name": "specterqa_list_products",
       "description": "List configured test products and their available journeys.",
       "inputs": {
         "directory": "string (optional) — project root directory, defaults to CWD"
@@ -70,7 +70,7 @@
       "outputs": "Array of product configs with product name, display name, and journey IDs"
     },
     {
-      "name": "ghostqa_get_results",
+      "name": "specterqa_get_results",
       "description": "Retrieve full structured results from a previous run by run ID.",
       "inputs": {
         "run_id": "string (required) — run ID in format GQA-RUN-YYYYMMDD-HHMMSS-xxxx",
@@ -79,8 +79,8 @@
       "outputs": "Full run result JSON including step reports, findings, screenshots paths, and cost breakdown"
     },
     {
-      "name": "ghostqa_init",
-      "description": "Initialize a new GhostQA project directory with sample product, persona, and journey configs.",
+      "name": "specterqa_init",
+      "description": "Initialize a new SpecterQA project directory with sample product, persona, and journey configs.",
       "inputs": {
         "directory": "string (optional) — target directory for initialization, defaults to CWD"
       },
@@ -91,7 +91,7 @@
     "python": ">=3.10",
     "anthropic_api_key": true,
     "playwright": ">=1.48.0",
-    "notes": "Run 'ghostqa install' after pip install to download Playwright browsers"
+    "notes": "Run 'specterqa install' after pip install to download Playwright browsers"
   },
   "output_schema": {
     "run_result": {
