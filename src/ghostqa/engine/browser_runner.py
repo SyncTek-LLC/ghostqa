@@ -291,8 +291,8 @@ class BrowserRunner:
                 )
                 break
 
-            # 1. Take screenshot
-            screenshot_b64, screenshot_path = self._take_screenshot(page, step_id, action_idx, "before")
+            # 1. Take screenshot — named with action index; label updated after decision
+            screenshot_b64, screenshot_path = self._take_screenshot(page, step_id, action_idx, "state")
             screenshots.append(screenshot_path)
 
             # Track screenshot for stuck detection
@@ -619,9 +619,14 @@ class BrowserRunner:
     ) -> tuple[str, str]:
         """Take a screenshot and save it to the evidence directory.
 
+        Filename format: {step_id}-{action_idx:03d}-{label}.png
+        e.g. fill_signup_form-007-navigate_to.png
+
         Returns (base64_data, file_path).
         """
-        filename = f"{step_id}-{action_idx:03d}-{label}.png"
+        # Sanitize label for use in filename: replace spaces/slashes with underscores
+        safe_label = label.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        filename = f"{step_id}-{action_idx:03d}-{safe_label}.png"
         filepath = self._evidence_dir / filename
 
         # Ensure directory exists

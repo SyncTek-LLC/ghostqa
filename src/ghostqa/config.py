@@ -34,7 +34,9 @@ class GhostQAConfig:
     fixtures_dir: Path | None = None
 
     # API
-    anthropic_api_key: str = ""
+    # SECURITY (FIND-004): repr=False prevents the API key from appearing in
+    # repr() output, debug logs, and error tracebacks that print the config object.
+    anthropic_api_key: str = field(default="", repr=False)
     model_persona_simple: str = MODELS["persona_simple"]
     model_persona_complex: str = MODELS["persona_complex"]
     model_analysis: str = MODELS["analysis"]

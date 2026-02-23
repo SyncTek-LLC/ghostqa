@@ -1,10 +1,22 @@
 # Security Policy
 
+## Active Security Advisory
+
+**GHSA-GHOSTQA-001 (Critical):** Command injection vulnerability in `_check_preconditions` affecting v0.2.0 and all earlier versions.
+
+**Workaround (immediate):** Remove `check_command` from all product YAML files.
+**Fix:** Upgrade to v0.2.1 when released.
+
+See [SECURITY_ADVISORY.md](SECURITY_ADVISORY.md) for full details.
+
+---
+
 ## Supported Versions
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.1.x   | Yes                |
+| 0.2.x   | Yes (active)       |
+| 0.1.x   | No                 |
 | < 0.1   | No                 |
 
 We provide security updates for the latest minor release. Older versions will not receive patches.

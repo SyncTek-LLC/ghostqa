@@ -19,10 +19,69 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger("ghostqa.mcp")
+
+# SECURITY (FIND-002): Optional allowlist of base directories the MCP server
+# is permitted to access.  Controlled via the GHOSTQA_ALLOWED_DIRS environment
+# variable — a colon-separated list of absolute paths.
+#
+# When GHOSTQA_ALLOWED_DIRS is set, any `directory` argument that does NOT
+# resolve to within one of the listed bases is rejected.  This prevents an
+# AI agent from pointing GhostQA at arbitrary filesystem locations (e.g.
+# "/etc", "/home/other-user").
+#
+# When GHOSTQA_ALLOWED_DIRS is NOT set (the default), all directories are
+# permitted.  Operators running the MCP server in shared or multi-user
+# environments are strongly encouraged to set this variable.
+def _build_allowed_dirs() -> list[Path] | None:
+    """Build the list of allowed base directories from the environment.
+
+    Returns None if GHOSTQA_ALLOWED_DIRS is not set (no restriction active).
+    """
+    env_val = os.environ.get("GHOSTQA_ALLOWED_DIRS", "")
+    if env_val.strip():
+        return [Path(p).resolve() for p in env_val.split(":") if p.strip()]
+    return None  # No restriction configured
+
+
+# Computed once at import time so the allowlist is stable across all tool calls.
+_ALLOWED_DIRS: list[Path] | None = _build_allowed_dirs()
+
+
+def _validate_directory(directory: str | None) -> tuple[Path | None, str | None]:
+    """Resolve *directory* and verify it is within an allowed base (if configured).
+
+    Returns (resolved_path, None) on success, or (None, error_message) if
+    the path is outside all allowed bases when GHOSTQA_ALLOWED_DIRS is set.
+
+    SECURITY (FIND-002): Prevents path traversal by an MCP-connected AI agent
+    when the operator has configured directory restrictions.
+    """
+    start = Path(directory).resolve() if directory else Path.cwd().resolve()
+    logger.info("MCP directory request: %s (resolved: %s)", directory, start)
+
+    # No restriction configured — allow all directories
+    if _ALLOWED_DIRS is None:
+        return start, None
+
+    for allowed in _ALLOWED_DIRS:
+        try:
+            start.relative_to(allowed)
+            return start, None  # Within an allowed base — OK
+        except ValueError:
+            continue
+
+    allowed_list = ", ".join(str(p) for p in _ALLOWED_DIRS)
+    return None, (
+        f"Directory access denied: {start}\n\n"
+        f"The MCP server only allows access within: {allowed_list}\n\n"
+        "To allow additional directories, set the GHOSTQA_ALLOWED_DIRS "
+        "environment variable to a colon-separated list of permitted base paths."
+    )
 
 
 def _resolve_project_dir(directory: str | None = None) -> Path:
@@ -30,6 +89,9 @@ def _resolve_project_dir(directory: str | None = None) -> Path:
 
     Searches upward from *directory* (default: cwd) for a .ghostqa/ folder.
     Returns the path to the .ghostqa directory, or a default if none found.
+
+    Note: Callers must have already validated *directory* via _validate_directory()
+    before this function is called.
     """
     start = Path(directory).resolve() if directory else Path.cwd()
 
@@ -216,18 +278,25 @@ def create_server() -> Any:
         if level not in valid_levels:
             return json.dumps({
                 "error": f"Invalid level: {level}. Valid levels: {', '.join(sorted(valid_levels))}",
+                "tool_error": True,
+                "error_code": "CONFIG_ERROR",
             })
+
+        # SECURITY (FIND-002): Validate directory is within allowed bases
+        _, dir_err = _validate_directory(directory)
+        if dir_err:
+            return json.dumps({"error": dir_err, "tool_error": True, "error_code": "CONFIG_ERROR"})
 
         # Find project
         project_dir = _resolve_project_dir(directory)
         init_err = _check_project_initialized(project_dir)
         if init_err:
-            return json.dumps({"error": init_err})
+            return json.dumps({"error": init_err, "tool_error": True, "error_code": "PROJECT_NOT_INITIALIZED"})
 
         # Check playwright
         pw_err = _check_playwright_available()
         if pw_err:
-            return json.dumps({"error": pw_err})
+            return json.dumps({"error": pw_err, "tool_error": True, "error_code": "PLAYWRIGHT_NOT_INSTALLED"})
 
         # Build config
         try:
@@ -238,7 +307,7 @@ def create_server() -> Any:
                 level=level,
             )
         except Exception as exc:
-            return json.dumps({"error": f"Configuration error: {exc}"})
+            return json.dumps({"error": f"Configuration error: {exc}", "tool_error": True, "error_code": "CONFIG_ERROR"})
 
         # Run the orchestrator (synchronous -- runs in thread)
         try:
@@ -252,7 +321,11 @@ def create_server() -> Any:
             )
         except Exception as exc:
             logger.exception("Run failed")
-            return json.dumps({"error": f"Run failed: {exc}"})
+            return json.dumps({
+                "error": f"Run failed: {exc}",
+                "tool_error": True,
+                "error_code": "INTERNAL_ERROR",
+            })
 
         # Load structured result from evidence directory
         evidence_dir = config.evidence_dir
@@ -327,19 +400,32 @@ def create_server() -> Any:
         Returns:
             JSON array of products with their journeys.
         """
+        # SECURITY (FIND-002): Validate directory is within allowed bases
+        _, dir_err = _validate_directory(directory)
+        if dir_err:
+            return json.dumps({"error": dir_err, "tool_error": True, "error_code": "CONFIG_ERROR"})
+
         project_dir = _resolve_project_dir(directory)
         init_err = _check_project_initialized(project_dir)
         if init_err:
-            return json.dumps({"error": init_err})
+            return json.dumps({"error": init_err, "tool_error": True, "error_code": "PROJECT_NOT_INITIALIZED"})
 
         products_dir = project_dir / "products"
         if not products_dir.is_dir():
-            return json.dumps({"error": f"Products directory not found: {products_dir}"})
+            return json.dumps({
+                "error": f"Products directory not found: {products_dir}",
+                "tool_error": True,
+                "error_code": "PROJECT_NOT_INITIALIZED",
+            })
 
         try:
             import yaml  # type: ignore
         except ImportError:
-            return json.dumps({"error": "PyYAML not installed. Install it: pip install pyyaml"})
+            return json.dumps({
+                "error": "PyYAML not installed. Install it: pip install pyyaml",
+                "tool_error": True,
+                "error_code": "CONFIG_ERROR",
+            })
 
         results: list[dict[str, Any]] = []
 
@@ -438,14 +524,23 @@ def create_server() -> Any:
         Returns:
             JSON string with the full run result, or an error.
         """
+        # SECURITY (FIND-002): Validate directory is within allowed bases
+        _, dir_err = _validate_directory(directory)
+        if dir_err:
+            return json.dumps({"error": dir_err, "tool_error": True, "error_code": "CONFIG_ERROR"})
+
         project_dir = _resolve_project_dir(directory)
         init_err = _check_project_initialized(project_dir)
         if init_err:
-            return json.dumps({"error": init_err})
+            return json.dumps({"error": init_err, "tool_error": True, "error_code": "PROJECT_NOT_INITIALIZED"})
 
         evidence_dir = project_dir / "evidence"
         if not evidence_dir.is_dir():
-            return json.dumps({"error": f"Evidence directory not found: {evidence_dir}"})
+            return json.dumps({
+                "error": f"Evidence directory not found: {evidence_dir}",
+                "tool_error": True,
+                "error_code": "PROJECT_NOT_INITIALIZED",
+            })
 
         # Try to load the specific run
         result_data = _load_run_result(evidence_dir, run_id)
@@ -457,11 +552,15 @@ def create_server() -> Any:
         if available:
             return json.dumps({
                 "error": f"Run ID not found: {run_id}",
+                "tool_error": True,
+                "error_code": "RUN_NOT_FOUND",
                 "available_run_ids": available[:20],  # Show up to 20 most recent
             })
         else:
             return json.dumps({
                 "error": f"Run ID not found: {run_id}",
+                "tool_error": True,
+                "error_code": "RUN_NOT_FOUND",
                 "available_run_ids": [],
                 "hint": "No runs have been recorded yet. Use ghostqa_run to execute tests first.",
             })
@@ -490,6 +589,11 @@ def create_server() -> Any:
         Returns:
             JSON with success status and list of created files.
         """
+        # SECURITY (FIND-002): Validate directory is within allowed bases
+        _, dir_err = _validate_directory(directory)
+        if dir_err:
+            return json.dumps({"success": False, "error": dir_err})
+
         target = Path(directory).resolve()
         project_dir = target / ".ghostqa"
 
@@ -543,23 +647,129 @@ def create_server() -> Any:
             journey_path.write_text(_SAMPLE_JOURNEY, encoding="utf-8")
             created_files.append(".ghostqa/journeys/demo-onboarding.yaml")
 
+            # SECURITY (FIND-003): Ensure .gitignore in the parent directory
+            # includes .ghostqa/personas/ so persona files (which may contain
+            # credential environment variable references) are not committed.
+            _personas_entry = ".ghostqa/personas/"
+            gitignore_path = target / ".gitignore"
+            if gitignore_path.exists():
+                existing = gitignore_path.read_text(encoding="utf-8")
+                if _personas_entry not in existing:
+                    gitignore_path.write_text(
+                        existing.rstrip("\n")
+                        + f"\n\n# GhostQA — persona files may contain credential references\n{_personas_entry}\n",
+                        encoding="utf-8",
+                    )
+            else:
+                gitignore_path.write_text(
+                    f"# GhostQA — persona files may contain credential references\n{_personas_entry}\n",
+                    encoding="utf-8",
+                )
+            created_files.append(".gitignore (updated with .ghostqa/personas/)")
+
         except Exception as exc:
             return json.dumps({
                 "success": False,
                 "error": f"Failed to create project: {exc}",
             })
 
+        import os
+
+        api_key_configured = bool(os.environ.get("ANTHROPIC_API_KEY"))
+
         return json.dumps({
             "success": True,
             "project_dir": str(project_dir),
             "files_created": created_files,
+            "api_key_configured": api_key_configured,
             "next_steps": [
                 f"Edit .ghostqa/products/demo.yaml with your app's URL"
                 + (f" (set to {url})" if url else ""),
                 "Customize personas and journeys for your app",
                 "Install Playwright: playwright install chromium",
+                *([] if api_key_configured else ["Set ANTHROPIC_API_KEY: export ANTHROPIC_API_KEY=sk-ant-..."]),
                 "Run tests: use the ghostqa_run tool with product='demo'",
             ],
+        })
+
+    # ── Tool: ghostqa_budget_check ───────────────────────────────────────
+
+    @mcp.tool(
+        name="ghostqa_budget_check",
+        description=(
+            "Check cumulative GhostQA cost against daily and monthly budget limits. "
+            "Call this before ghostqa_run to avoid hard budget-exceeded errors mid-run. "
+            "Returns current spend, limits, and whether a run can proceed. Zero cost — no API calls made."
+        ),
+    )
+    async def ghostqa_budget_check(
+        directory: str | None = None,
+        per_day_usd: float = 0.0,
+        per_month_usd: float = 0.0,
+    ) -> str:
+        """Check cumulative budget status without running tests.
+
+        Args:
+            directory: Working directory to search for .ghostqa/ project.
+                       Defaults to the server's working directory.
+            per_day_usd: Daily spend limit in USD. 0.0 means no limit.
+            per_month_usd: Monthly spend limit in USD. 0.0 means no limit.
+
+        Returns:
+            JSON string with current budget status including daily/monthly spend,
+            limits, and whether a run can proceed.
+        """
+        project_dir = _resolve_project_dir(directory)
+        init_err = _check_project_initialized(project_dir)
+        if init_err:
+            return json.dumps({
+                "error": init_err,
+                "tool_error": True,
+                "error_code": "PROJECT_NOT_INITIALIZED",
+            })
+
+        try:
+            from ghostqa.engine.cost_tracker import CostTracker
+
+            # Use evidence dir as the base for the cost ledger
+            base_dir = project_dir / "evidence"
+            budget_status = CostTracker.check_cumulative_budget(
+                base_dir=base_dir,
+                per_day_usd=per_day_usd,
+                per_month_usd=per_month_usd,
+            )
+        except Exception as exc:
+            return json.dumps({
+                "error": f"Budget check failed: {exc}",
+                "tool_error": True,
+                "error_code": "INTERNAL_ERROR",
+            })
+
+        daily_ok = budget_status["daily_ok"]
+        monthly_ok = budget_status["monthly_ok"]
+        can_run = daily_ok and monthly_ok
+
+        reason: str | None = None
+        if not daily_ok:
+            reason = (
+                f"Daily budget limit reached: "
+                f"${budget_status['daily_spent']:.4f} spent of ${per_day_usd:.2f} daily limit"
+            )
+        elif not monthly_ok:
+            reason = (
+                f"Monthly budget limit reached: "
+                f"${budget_status['monthly_spent']:.4f} spent of ${per_month_usd:.2f} monthly limit"
+            )
+
+        return json.dumps({
+            "can_run": can_run,
+            "daily_ok": daily_ok,
+            "monthly_ok": monthly_ok,
+            "daily_spent_usd": budget_status["daily_spent"],
+            "daily_limit_usd": per_day_usd,
+            "monthly_spent_usd": budget_status["monthly_spent"],
+            "monthly_limit_usd": per_month_usd,
+            "reason": reason,
         })
 
     return mcp

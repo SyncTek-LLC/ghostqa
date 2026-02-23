@@ -846,11 +846,64 @@ class GhostQAOrchestrator:
 
         return len(errors) == 0, errors
 
+    # SECURITY (FIND-001): Allowlist of executables permitted in check_command.
+    # This prevents a malicious product YAML from executing arbitrary binaries.
+    # shlex.split() alone does NOT stop "/bin/sh -c 'payload'" — the allowlist does.
+    _ALLOWED_CHECK_COMMANDS: frozenset[str] = frozenset(
+        [
+            "pg_isready",
+            "curl",
+            "wget",
+            "nc",
+            "ncat",
+            "redis-cli",
+            "mysqladmin",
+            "mongosh",
+        ]
+    )
+
+    # SECURITY (FIND-001): Reject any command string containing shell metacharacters
+    # that could be used to chain additional commands even within allowed executables.
+    _SHELL_METACHAR_RE = re.compile(r"[;&|`$<>()\\\n]")
+
     @staticmethod
     def _check_command(command: str) -> bool:
-        """Run a shell command and return True if it exits 0."""
+        """Run a shell command and return True if it exits 0.
+
+        SECURITY: Only commands whose base executable appears in
+        _ALLOWED_CHECK_COMMANDS are accepted.  Commands containing shell
+        metacharacters are rejected outright, even for allowed executables,
+        to prevent argument-injection via pipes, subshells, or redirection.
+        """
+        # Reject shell metacharacters before any splitting
+        if GhostQAOrchestrator._SHELL_METACHAR_RE.search(command):
+            logger.warning(
+                "check_command rejected — contains shell metacharacter: %r", command
+            )
+            return False
+
         try:
-            result = subprocess.run(shlex.split(command), capture_output=True, timeout=10)
+            parts = shlex.split(command)
+        except ValueError:
+            logger.warning("check_command rejected — shlex.split failed: %r", command)
+            return False
+
+        if not parts:
+            return False
+
+        # Validate the executable name against the allowlist (basename only)
+        executable = Path(parts[0]).name
+        if executable not in GhostQAOrchestrator._ALLOWED_CHECK_COMMANDS:
+            logger.warning(
+                "check_command rejected — executable %r not in allowlist. "
+                "Allowed: %s",
+                executable,
+                ", ".join(sorted(GhostQAOrchestrator._ALLOWED_CHECK_COMMANDS)),
+            )
+            return False
+
+        try:
+            result = subprocess.run(parts, capture_output=True, timeout=10)
             return result.returncode == 0
         except Exception:
             return False
@@ -882,8 +935,36 @@ class GhostQAOrchestrator:
 
     # ── Utilities ────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _save_run_artifacts(result: VTERunResult, report: str, evidence_dir: Path) -> None:
+    # SECURITY (FIND-003): Pattern matching keys that may hold credentials.
+    # Any dict entry whose key matches this pattern is scrubbed from run-result.json.
+    _CREDENTIAL_KEY_RE = re.compile(
+        r"(password|passwd|secret|token|api_key|credential|auth_key|private_key|access_key)",
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def _scrub_credentials(cls, obj: Any) -> Any:
+        """Recursively replace credential-bearing values with [REDACTED].
+
+        Walks dicts and lists in the serialized run result and replaces the
+        *value* of any key matching _CREDENTIAL_KEY_RE with the string
+        '[REDACTED]'.  This prevents test passwords and tokens that were
+        resolved from persona YAML from leaking into run-result.json.
+        """
+        if isinstance(obj, dict):
+            scrubbed: dict[str, Any] = {}
+            for k, v in obj.items():
+                if isinstance(k, str) and cls._CREDENTIAL_KEY_RE.search(k):
+                    scrubbed[k] = "[REDACTED]"
+                else:
+                    scrubbed[k] = cls._scrub_credentials(v)
+            return scrubbed
+        if isinstance(obj, list):
+            return [cls._scrub_credentials(item) for item in obj]
+        return obj
+
+    @classmethod
+    def _save_run_artifacts(cls, result: VTERunResult, report: str, evidence_dir: Path) -> None:
         """Save the run result as JSON and markdown artifacts.
 
         Args:
@@ -901,6 +982,12 @@ class GhostQAOrchestrator:
         # Save structured result as JSON
         try:
             result_dict = dataclasses.asdict(result)
+            # SECURITY (FIND-003): Scrub credential-bearing fields before writing
+            # to disk so that resolved passwords/tokens from persona YAML are
+            # never stored in the evidence directory.
+            result_dict = cls._scrub_credentials(result_dict)
+            # schema_version is the first key so consumers can verify compatibility
+            result_dict = {"schema_version": "1.0", **result_dict}
             result_json_path = evidence_dir / "run-result.json"
             result_json_path.write_text(json.dumps(result_dict, indent=2, default=json_serialize))
             logger.info("Saved run result JSON to %s", result_json_path)

@@ -3,12 +3,20 @@
 This is the primary command. It resolves config, loads the orchestrator,
 runs persona-driven journeys against a product, and displays live Rich
 output with step progress, findings, and cost tracking.
+
+Features:
+- TTY-aware output: Rich spinner and formatting only in interactive terminals;
+  plain ASCII line-by-line output in CI/pipes (auto-detected or via --plain).
+- --fail-on-severity: Exit 1 only when findings meet or exceed a threshold.
+- --plain: Explicit ASCII mode for screen readers and minimal terminals.
+- Findings sorted by severity in all output modes.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import sys
 import time
 from pathlib import Path
 
@@ -26,8 +34,57 @@ output_console = Console()  # stdout for machine-readable output
 
 logger = logging.getLogger("ghostqa.cli.run")
 
+# ── Severity ordering ─────────────────────────────────────────────────────
 
-def _parse_viewport(viewport_str: str) -> tuple[int, int]:
+# Ordered most-severe first; 'any' is a special sentinel for "fail on everything"
+_SEVERITY_LEVELS = ["block", "critical", "high", "medium", "low", "any"]
+_SEVERITY_ORDER: dict[str, int] = {s: i for i, s in enumerate(_SEVERITY_LEVELS)}
+
+
+def _finding_meets_threshold(finding_severity: str, threshold: str) -> bool:
+    """Return True if a finding severity is at or above the given threshold.
+
+    Severity hierarchy (most severe first): block > critical > high > medium > low.
+    'any' means every finding qualifies.
+    """
+    if threshold == "any":
+        return True
+    finding_rank = _SEVERITY_ORDER.get(finding_severity, len(_SEVERITY_ORDER))
+    threshold_rank = _SEVERITY_ORDER.get(threshold, len(_SEVERITY_ORDER))
+    return finding_rank <= threshold_rank
+
+
+def _sort_findings_by_severity(findings: list[dict]) -> list[dict]:
+    """Sort findings from most to least severe."""
+    return sorted(
+        findings,
+        key=lambda f: _SEVERITY_ORDER.get(f.get("severity", "low"), len(_SEVERITY_ORDER)),
+    )
+
+
+# ── Plain-mode output helpers ─────────────────────────────────────────────
+
+
+def _plain_print(msg: str) -> None:
+    """Print a plain text line to stderr."""
+    print(msg, file=sys.stderr, flush=True)
+
+
+# ── Shared error printer ──────────────────────────────────────────────────
+
+
+def _print_error(c: Console, plain: bool, message: str, title: str = "Error") -> None:
+    """Print an error message in either plain or Rich mode."""
+    if plain:
+        _plain_print(f"[{title}] {message}")
+    else:
+        c.print(Panel(f"[red]{message}[/red]", title=f"[red]{title}[/red]", border_style="red"))
+
+
+# ── Viewport parser ───────────────────────────────────────────────────────
+
+
+def _parse_viewport(viewport_str: str, plain: bool) -> tuple[int, int]:
     """Parse a 'WIDTHxHEIGHT' string into a (width, height) tuple."""
     try:
         parts = viewport_str.lower().split("x")
@@ -35,14 +92,16 @@ def _parse_viewport(viewport_str: str) -> tuple[int, int]:
             raise ValueError
         return (int(parts[0]), int(parts[1]))
     except (ValueError, IndexError):
-        console.print(
-            Panel(
-                f"[red]Invalid viewport format:[/red] {viewport_str}\n\nExpected format: WIDTHxHEIGHT (e.g., 1280x720)",
-                title="[red]Config Error[/red]",
-                border_style="red",
-            )
+        _print_error(
+            console,
+            plain,
+            f"Invalid viewport format: {viewport_str}\n\nExpected format: WIDTHxHEIGHT (e.g., 1280x720)",
+            "Config Error",
         )
         raise typer.Exit(code=2)
+
+
+# ── Config builder ────────────────────────────────────────────────────────
 
 
 def _build_config(
@@ -79,22 +138,20 @@ def _build_config(
 def _resolve_project_dir() -> Path:
     """Find the .ghostqa/ project directory, searching upward from cwd."""
     current = Path.cwd()
-    # Check current directory first
     candidate = current / ".ghostqa"
     if candidate.is_dir():
         return candidate
-
-    # Walk up parents
     for parent in current.parents:
         candidate = parent / ".ghostqa"
         if candidate.is_dir():
             return candidate
-
-    # Fallback: use cwd/.ghostqa (will be created if needed)
     return current / ".ghostqa"
 
 
-def _print_run_header(
+# ── Rich output helpers ───────────────────────────────────────────────────
+
+
+def _print_run_header_rich(
     product: str,
     journey: str | None,
     level: str,
@@ -102,6 +159,7 @@ def _print_run_header(
     budget: float,
     headless: bool,
     api_key_display: str,
+    fail_on_severity: str,
 ) -> None:
     """Print a styled header before the run starts."""
     info_lines = [
@@ -112,6 +170,7 @@ def _print_run_header(
         f"[bold]Budget:[/bold]    ${budget:.2f}",
         f"[bold]Headless:[/bold]  {headless}",
         f"[bold]API Key:[/bold]   {api_key_display}",
+        f"[bold]Fail on:[/bold]   {fail_on_severity}",
     ]
     console.print()
     console.print(
@@ -124,18 +183,16 @@ def _print_run_header(
     console.print()
 
 
-def _print_step_result(
+def _print_step_result_rich(
     step_num: int,
     total_steps: int,
-    step_id: str,
     description: str,
     passed: bool,
     duration: float,
-    cost: float,
     error: str | None = None,
     findings_count: int = 0,
 ) -> None:
-    """Print a single step result line."""
+    """Print a single step result line in Rich mode."""
     if passed:
         icon = "[bold green]\u2713[/bold green]"
         status = "[green]PASS[/green]"
@@ -143,12 +200,10 @@ def _print_step_result(
         icon = "[bold red]\u2717[/bold red]"
         status = "[red]FAIL[/red]"
 
-    # Main line: icon, step counter, description, status
     step_label = f"Step {step_num}/{total_steps}"
-    console.print(f"  {icon} {step_label}: {description}  {status}  [dim]{duration:.1f}s  ${cost:.4f}[/dim]")
+    console.print(f"  {icon} {step_label}: {description}  {status}  [dim]{duration:.1f}s[/dim]")
 
     if error and not passed:
-        # Show the error indented under the step
         error_short = error if len(error) <= 120 else error[:117] + "..."
         console.print(f"    [dim red]{error_short}[/dim red]")
 
@@ -156,7 +211,7 @@ def _print_step_result(
         console.print(f"    [dim yellow]{findings_count} finding(s)[/dim yellow]")
 
 
-def _print_summary_panel(
+def _print_summary_panel_rich(
     all_passed: bool,
     total_steps: int,
     passed_steps: int,
@@ -165,7 +220,7 @@ def _print_summary_panel(
     cost: float,
     run_id: str,
 ) -> None:
-    """Print the final summary panel."""
+    """Print the final summary panel in Rich mode."""
     if all_passed:
         border = "green"
         verdict = "[bold green]ALL TESTS PASSED[/bold green]"
@@ -186,6 +241,66 @@ def _print_summary_panel(
     console.print()
     console.print(Panel("\n".join(summary_lines), border_style=border))
     console.print()
+
+
+# ── Plain (ASCII) output helpers ──────────────────────────────────────────
+
+
+def _print_run_header_plain(
+    product: str,
+    journey: str | None,
+    level: str,
+    viewport: tuple[int, int],
+    budget: float,
+    headless: bool,
+    fail_on_severity: str,
+) -> None:
+    """Print a plain-text header for CI/screen-reader contexts."""
+    _plain_print(
+        f"GhostQA run starting: product={product} journey={journey or 'all'} "
+        f"level={level} viewport={viewport[0]}x{viewport[1]} "
+        f"budget=${budget:.2f} headless={headless} fail-on={fail_on_severity}"
+    )
+
+
+def _print_step_result_plain(
+    step_num: int,
+    total_steps: int,
+    description: str,
+    passed: bool,
+    duration: float,
+    error: str | None = None,
+    findings_count: int = 0,
+) -> None:
+    """Print a single step result line in plain ASCII mode."""
+    status = "PASS" if passed else "FAIL"
+    _plain_print(f"Step {step_num}/{total_steps} {status}: {description} ({duration:.1f}s)")
+    if error and not passed:
+        error_short = error if len(error) <= 160 else error[:157] + "..."
+        _plain_print(f"  Error: {error_short}")
+    if findings_count > 0:
+        _plain_print(f"  Findings: {findings_count}")
+
+
+def _print_summary_plain(
+    all_passed: bool,
+    total_steps: int,
+    passed_steps: int,
+    total_findings: int,
+    duration: float,
+    cost: float,
+    run_id: str,
+) -> None:
+    """Print a plain-text summary for CI/screen-reader contexts."""
+    verdict = "PASSED" if all_passed else "FAILED"
+    _plain_print(
+        f"RESULT: {verdict} -- {passed_steps}/{total_steps} steps passed, "
+        f"{total_findings} findings, {duration:.1f}s, ${cost:.4f}"
+    )
+    _plain_print(f"Run ID: {run_id}")
+
+
+# ── JUnit XML writer ──────────────────────────────────────────────────────
 
 
 def _write_junit_xml(
@@ -223,12 +338,15 @@ def _write_junit_xml(
     tree.write(str(junit_path), xml_declaration=True, encoding="unicode")
 
 
+# ── Main command ──────────────────────────────────────────────────────────
+
+
 def run(
     product: str = typer.Option(
         ...,
         "--product",
         "-p",
-        help="Product name (must match a .yaml in .ghostqa/products/).",
+        help="Product name (must match a .yaml in .ghostqa/products/). [required]",
     ),
     journey: str | None = typer.Option(
         None,
@@ -240,18 +358,34 @@ def run(
         "standard",
         "--level",
         "-l",
-        help="Test level: smoke, standard, or thorough.",
+        help="Test level: smoke, standard, or thorough.  [default: standard]",
     ),
     viewport: str = typer.Option(
         "1280x720",
         "--viewport",
-        help="Browser viewport as WIDTHxHEIGHT.",
+        help="Browser viewport as WIDTHxHEIGHT.  [default: 1280x720]",
     ),
     budget: float = typer.Option(
         5.00,
         "--budget",
         "-b",
-        help="Maximum budget for this run in USD.",
+        help="Maximum budget for this run in USD.  [default: 5.0]",
+    ),
+    fail_on_severity: str = typer.Option(
+        "any",
+        "--fail-on-severity",
+        help=(
+            "Exit 1 only if findings meet or exceed this severity threshold. "
+            "Choices: block, critical, high, medium, low, any.  [default: any]"
+        ),
+    ),
+    plain: bool = typer.Option(
+        False,
+        "--plain",
+        help=(
+            "Use plain ASCII output — no Rich formatting, colors, or Unicode. "
+            "Uses [PASS]/[FAIL]/[SKIP] labels. For screen readers and minimal terminals."
+        ),
     ),
     junit_xml: Path | None = typer.Option(
         None,
@@ -262,7 +396,7 @@ def run(
         "text",
         "--output",
         "-o",
-        help="Output format: text or json.",
+        help="Output format: text or json.  [default: text]",
     ),
     headless: bool = typer.Option(
         True,
@@ -281,35 +415,53 @@ def run(
     Launches AI personas that navigate your app via real browser sessions,
     evaluating UX, functionality, and error handling through vision-based
     interaction.
+
+    \b
+    Examples:
+      ghostqa run -p demo
+      ghostqa run -p myapp --journey onboarding-happy-path
+      ghostqa run -p myapp --level smoke --budget 1.00
+      ghostqa run -p myapp --fail-on-severity high   # ignore low/medium findings
+      ghostqa run -p myapp --output json | jq '.passed'
+      ghostqa run -p myapp --plain                   # CI-safe ASCII output
     """
     if verbose:
         logging.basicConfig(level=logging.DEBUG, format="%(name)s  %(message)s")
 
+    # Detect non-TTY context (CI/pipe) — auto-enable plain mode when not interactive.
+    # This prevents spinner \r overwrites from corrupting CI log files.
+    is_tty = sys.stdout.isatty()
+    if not is_tty and not plain and output_format != "json":
+        plain = True
+
     # Validate level
     valid_levels = {"smoke", "standard", "thorough"}
     if level not in valid_levels:
-        console.print(
-            Panel(
-                f"[red]Invalid level:[/red] {level}\n\nValid levels: {', '.join(sorted(valid_levels))}",
-                title="[red]Config Error[/red]",
-                border_style="red",
-            )
+        _print_error(console, plain, f"Invalid level: {level}\n\nValid levels: {', '.join(sorted(valid_levels))}", "Config Error")
+        raise typer.Exit(code=2)
+
+    # Validate fail-on-severity
+    if fail_on_severity not in _SEVERITY_LEVELS:
+        _print_error(
+            console,
+            plain,
+            f"Invalid --fail-on-severity: {fail_on_severity!r}\n\nValid choices: {', '.join(_SEVERITY_LEVELS)}",
+            "Config Error",
         )
         raise typer.Exit(code=2)
 
     # Validate output format
     if output_format not in ("text", "json"):
-        console.print(
-            Panel(
-                f"[red]Invalid output format:[/red] {output_format}\n\nValid formats: text, json",
-                title="[red]Config Error[/red]",
-                border_style="red",
-            )
+        _print_error(
+            console,
+            plain,
+            f"Invalid output format: {output_format!r}\n\nValid formats: text, json",
+            "Config Error",
         )
         raise typer.Exit(code=2)
 
     # Parse viewport
-    vp = _parse_viewport(viewport)
+    vp = _parse_viewport(viewport, plain)
 
     # Resolve project directory
     project_dir = _resolve_project_dir()
@@ -318,13 +470,7 @@ def run(
     try:
         api_key = resolve_api_key(project_dir)
     except GhostQAConfigError as exc:
-        console.print(
-            Panel(
-                f"[red]{exc}[/red]",
-                title="[red]API Key Error[/red]",
-                border_style="red",
-            )
-        )
+        _print_error(console, plain, str(exc), "API Key Error")
         raise typer.Exit(code=2)
 
     # Build config
@@ -339,40 +485,45 @@ def run(
         )
         config.anthropic_api_key = api_key
     except GhostQAConfigError as exc:
-        console.print(
-            Panel(
-                f"[red]{exc}[/red]",
-                title="[red]Config Error[/red]",
-                border_style="red",
-            )
-        )
+        _print_error(console, plain, str(exc), "Config Error")
         raise typer.Exit(code=2)
 
-    # Print header (text mode only)
+    # Print header
     if output_format == "text":
-        _print_run_header(
-            product=product,
-            journey=journey,
-            level=level,
-            viewport=vp,
-            budget=budget,
-            headless=headless,
-            api_key_display=mask_key(api_key),
-        )
+        if plain:
+            _print_run_header_plain(
+                product=product,
+                journey=journey,
+                level=level,
+                viewport=vp,
+                budget=budget,
+                headless=headless,
+                fail_on_severity=fail_on_severity,
+            )
+        else:
+            _print_run_header_rich(
+                product=product,
+                journey=journey,
+                level=level,
+                viewport=vp,
+                budget=budget,
+                headless=headless,
+                api_key_display=mask_key(api_key),
+                fail_on_severity=fail_on_severity,
+            )
 
     # Import orchestrator (may fail if playwright not installed)
     try:
         from ghostqa.engine.orchestrator import GhostQAOrchestrator
     except ImportError as exc:
-        console.print(
-            Panel(
-                f"[red]Failed to import GhostQA engine:[/red] {exc}\n\n"
-                "This usually means a dependency is missing.\n"
-                "Try: [bold]pip install ghostqa[/bold]\n"
-                "Then: [bold]ghostqa install[/bold]",
-                title="[red]Import Error[/red]",
-                border_style="red",
-            )
+        _print_error(
+            console,
+            plain,
+            f"Failed to import GhostQA engine: {exc}\n\n"
+            "This usually means a dependency is missing.\n"
+            "Try: pip install ghostqa\n"
+            "Then: ghostqa install",
+            "Import Error",
         )
         raise typer.Exit(code=3)
 
@@ -382,7 +533,10 @@ def run(
     start_time = time.monotonic()
 
     if output_format == "text":
-        console.print("[bold]Running tests...[/bold]\n")
+        if plain:
+            _plain_print("Running tests...")
+        else:
+            console.print("[bold]Running tests...[/bold]\n")
 
     try:
         report_md, all_passed = orchestrator.run(
@@ -392,32 +546,27 @@ def run(
             viewport=viewport if viewport != "1280x720" else None,
         )
     except KeyboardInterrupt:
-        console.print("\n[yellow]Run interrupted by user.[/yellow]")
+        if plain:
+            _plain_print("Run interrupted by user.")
+        else:
+            console.print("\n[yellow]Run interrupted by user.[/yellow]")
         raise typer.Exit(code=1)
     except GhostQAConfigError as exc:
-        console.print(
-            Panel(
-                f"[red]{exc}[/red]",
-                title="[red]Config Error[/red]",
-                border_style="red",
-            )
-        )
+        _print_error(console, plain, str(exc), "Config Error")
         raise typer.Exit(code=2)
     except Exception as exc:
         logger.exception("Unexpected error during run")
-        console.print(
-            Panel(
-                f"[red]Unexpected error:[/red] {exc}\n\nRun with [bold]--verbose[/bold] for full traceback.",
-                title="[red]Infrastructure Error[/red]",
-                border_style="red",
-            )
+        _print_error(
+            console,
+            plain,
+            f"Unexpected error: {exc}\n\nRun with --verbose for full traceback.",
+            "Infrastructure Error",
         )
         raise typer.Exit(code=3)
 
     duration = time.monotonic() - start_time
 
-    # Try to extract structured info from the evidence directory for richer output
-    # The orchestrator writes run-result.json to the evidence dir
+    # Load structured result from the evidence directory
     run_result_data = _load_latest_run_result(config.evidence_dir)
 
     if output_format == "json":
@@ -436,14 +585,17 @@ def run(
                 )
             )
     else:
-        # Text output mode — rich formatting
+        # Text output mode
         if run_result_data:
-            _print_structured_results(run_result_data, duration)
+            _print_structured_results(run_result_data, duration, plain)
         else:
             # Fallback: print the markdown report
-            console.print()
-            console.print(report_md)
-            console.print()
+            if plain:
+                _plain_print(report_md)
+            else:
+                console.print()
+                console.print(report_md)
+                console.print()
 
     # Write JUnit XML if requested
     if junit_xml and run_result_data:
@@ -464,13 +616,39 @@ def run(
                 )
             _write_junit_xml(junit_xml, run_result_data.get("run_id", "unknown"), product, step_reports, duration)
             if output_format == "text":
-                console.print(f"[dim]JUnit XML written to: {junit_xml}[/dim]\n")
+                if plain:
+                    _plain_print(f"JUnit XML written to: {junit_xml}")
+                else:
+                    console.print(f"[dim]JUnit XML written to: {junit_xml}[/dim]\n")
         except Exception as exc:
-            console.print(f"[yellow]Warning: Failed to write JUnit XML: {exc}[/yellow]")
+            if plain:
+                _plain_print(f"Warning: Failed to write JUnit XML: {exc}")
+            else:
+                console.print(f"[yellow]Warning: Failed to write JUnit XML: {exc}[/yellow]")
 
-    # Exit code: 0 = all pass, 1 = any fail
+    # Exit code: apply --fail-on-severity filter
+    # 1. Determine if the run had any step failures
+    # 2. Check if any finding meets the severity threshold
     if not all_passed:
-        raise typer.Exit(code=1)
+        findings = run_result_data.get("findings", []) if run_result_data else []
+        qualifying_findings = [
+            f for f in findings if _finding_meets_threshold(f.get("severity", ""), fail_on_severity)
+        ]
+        if qualifying_findings or fail_on_severity == "any":
+            raise typer.Exit(code=1)
+        # No qualifying findings — exit 0 despite test failures
+        if output_format == "text":
+            msg = (
+                f"Tests failed but no findings at or above '{fail_on_severity}' severity. "
+                "Exiting 0 per --fail-on-severity."
+            )
+            if plain:
+                _plain_print(f"NOTE: {msg}")
+            else:
+                console.print(f"[dim]{msg}[/dim]")
+
+
+# ── Result loading ────────────────────────────────────────────────────────
 
 
 def _load_latest_run_result(evidence_dir: Path) -> dict | None:
@@ -478,7 +656,6 @@ def _load_latest_run_result(evidence_dir: Path) -> dict | None:
     if not evidence_dir.is_dir():
         return None
 
-    # Find all run directories, sorted by name (they contain timestamps)
     run_dirs = sorted(
         [d for d in evidence_dir.iterdir() if d.is_dir() and d.name.startswith("GQA-RUN-")],
         reverse=True,
@@ -495,10 +672,14 @@ def _load_latest_run_result(evidence_dir: Path) -> dict | None:
     return None
 
 
-def _print_structured_results(data: dict, duration: float) -> None:
+# ── Structured output renderers ───────────────────────────────────────────
+
+
+def _print_structured_results(data: dict, duration: float, plain: bool = False) -> None:
     """Print structured results from a run-result.json dict."""
     step_reports = data.get("step_reports", [])
-    findings = data.get("findings", [])
+    # Sort findings by severity (most severe first)
+    findings = _sort_findings_by_severity(data.get("findings", []))
     total_steps = len(step_reports)
     passed_steps = sum(1 for s in step_reports if s.get("passed"))
     run_id = data.get("run_id", "unknown")
@@ -508,54 +689,85 @@ def _print_structured_results(data: dict, duration: float) -> None:
     # Print each step result
     for i, step in enumerate(step_reports, 1):
         step_findings = [f for f in findings if f.get("step_id") == step.get("step_id")]
-        _print_step_result(
-            step_num=i,
-            total_steps=total_steps,
-            step_id=step.get("step_id", "unknown"),
-            description=step.get("description", ""),
-            passed=step.get("passed", False),
-            duration=step.get("duration_seconds", 0),
-            cost=0,  # Per-step cost not tracked separately; shown in summary
-            error=step.get("error"),
-            findings_count=len(step_findings),
-        )
-
-    # Print findings table if any
-    if findings:
-        console.print()
-        table = Table(title="Findings", border_style="red")
-        table.add_column("Severity", style="bold")
-        table.add_column("Category")
-        table.add_column("Description")
-        table.add_column("Step")
-
-        for f in findings:
-            severity = f.get("severity", "?")
-            sev_style = {
-                "block": "bold red",
-                "critical": "red",
-                "high": "yellow",
-                "medium": "cyan",
-                "low": "dim",
-            }.get(severity, "")
-            desc = f.get("description", "")
-            if len(desc) > 80:
-                desc = desc[:77] + "..."
-            table.add_row(
-                Text(severity, style=sev_style),
-                f.get("category", "?"),
-                desc,
-                f.get("step_id", "?"),
+        if plain:
+            _print_step_result_plain(
+                step_num=i,
+                total_steps=total_steps,
+                description=step.get("description", ""),
+                passed=step.get("passed", False),
+                duration=step.get("duration_seconds", 0),
+                error=step.get("error"),
+                findings_count=len(step_findings),
             )
-        console.print(table)
+        else:
+            _print_step_result_rich(
+                step_num=i,
+                total_steps=total_steps,
+                description=step.get("description", ""),
+                passed=step.get("passed", False),
+                duration=step.get("duration_seconds", 0),
+                error=step.get("error"),
+                findings_count=len(step_findings),
+            )
 
-    # Print summary panel
-    _print_summary_panel(
-        all_passed=all_passed,
-        total_steps=total_steps,
-        passed_steps=passed_steps,
-        total_findings=len(findings),
-        duration=duration,
-        cost=cost,
-        run_id=run_id,
-    )
+    # Print findings
+    if findings:
+        if plain:
+            _plain_print("")
+            _plain_print(f"Findings ({len(findings)}):")
+            for f in findings:
+                severity = f.get("severity", "?").upper()
+                category = f.get("category", "?")
+                desc = f.get("description", "")
+                step_id = f.get("step_id", "?")
+                _plain_print(f"  [{severity}] ({category}) {desc}  [step: {step_id}]")
+        else:
+            console.print()
+            table = Table(title="Findings", border_style="red")
+            table.add_column("Severity", style="bold")
+            table.add_column("Category")
+            table.add_column("Description")
+            table.add_column("Step")
+
+            for f in findings:
+                severity = f.get("severity", "?")
+                sev_style = {
+                    "block": "bold red",
+                    "critical": "red",
+                    "high": "yellow",
+                    "medium": "cyan",
+                    "low": "dim",
+                }.get(severity, "")
+                desc = f.get("description", "")
+                if len(desc) > 80:
+                    desc = desc[:77] + "..."
+                table.add_row(
+                    Text(severity, style=sev_style),
+                    f.get("category", "?"),
+                    desc,
+                    f.get("step_id", "?"),
+                )
+            console.print(table)
+
+    # Print summary
+    if plain:
+        _plain_print("")
+        _print_summary_plain(
+            all_passed=all_passed,
+            total_steps=total_steps,
+            passed_steps=passed_steps,
+            total_findings=len(findings),
+            duration=duration,
+            cost=cost,
+            run_id=run_id,
+        )
+    else:
+        _print_summary_panel_rich(
+            all_passed=all_passed,
+            total_steps=total_steps,
+            passed_steps=passed_steps,
+            total_findings=len(findings),
+            duration=duration,
+            cost=cost,
+            run_id=run_id,
+        )

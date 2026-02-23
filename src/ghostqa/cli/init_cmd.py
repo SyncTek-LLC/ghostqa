@@ -82,9 +82,12 @@ persona:
     - "Unclear error messages"
     - "Missing loading states"
 
+  # SECURITY (FIND-003): Use environment variable references for credentials.
+  # Never store real credentials as literal values in persona YAML files.
+  # Set TEST_EMAIL and TEST_PASSWORD in your environment or .env file before running.
   credentials:
-    email: "alex@example.com"
-    password: "TestPass123!"
+    email: "${TEST_EMAIL}"
+    password: "${TEST_PASSWORD}"
 """
 
 _SAMPLE_JOURNEY = """\
@@ -197,6 +200,25 @@ def init(
     _copy_examples_or_inline(project_dir / "personas", "personas", "alex-developer.yaml", _SAMPLE_PERSONA)
     _copy_examples_or_inline(project_dir / "journeys", "journeys", "demo-onboarding.yaml", _SAMPLE_JOURNEY)
 
+    # SECURITY (FIND-003): Ensure .gitignore in the project root includes
+    # .ghostqa/personas/ so persona YAML files (which may contain credential
+    # references) are not accidentally committed to version control.
+    parent_dir = project_dir.parent
+    gitignore_path = parent_dir / ".gitignore"
+    _personas_gitignore_entry = ".ghostqa/personas/"
+    if gitignore_path.exists():
+        existing = gitignore_path.read_text(encoding="utf-8")
+        if _personas_gitignore_entry not in existing:
+            gitignore_path.write_text(
+                existing.rstrip("\n") + f"\n\n# GhostQA — persona files may contain credential references\n{_personas_gitignore_entry}\n",
+                encoding="utf-8",
+            )
+    else:
+        gitignore_path.write_text(
+            f"# GhostQA — persona files may contain credential references\n{_personas_gitignore_entry}\n",
+            encoding="utf-8",
+        )
+
     # Display result as a Rich tree
     tree = Tree(f"[bold green]{project_dir}[/bold green]", guide_style="dim")
     tree.add("[cyan]config.yaml[/cyan]")
@@ -215,10 +237,32 @@ def init(
             border_style="green",
         )
     )
+    import os
+
+    api_key_set = bool(os.environ.get("ANTHROPIC_API_KEY"))
+
     console.print()
     console.print("[dim]Next steps:[/dim]")
     console.print("  1. Edit [cyan].ghostqa/products/demo.yaml[/cyan] with your app's URL")
     console.print("  2. Customize personas and journeys")
     console.print("  3. Run [bold]ghostqa install[/bold] to set up Playwright")
-    console.print("  4. Run [bold]ghostqa run --product demo[/bold]")
+
+    if not api_key_set:
+        console.print()
+        console.print(
+            Panel(
+                "[bold yellow]Set your API key before running tests:[/bold yellow]\n\n"
+                "  export ANTHROPIC_API_KEY=sk-ant-...\n\n"
+                "Get a key at: https://console.anthropic.com/\n\n"
+                "You can also store it in [cyan].ghostqa/config.yaml[/cyan]:\n"
+                "  [dim]anthropic_api_key: sk-ant-...[/dim]",
+                title="[yellow]API Key Required[/yellow]",
+                border_style="yellow",
+            )
+        )
+    else:
+        console.print("  4. [green]ANTHROPIC_API_KEY already set \u2713[/green]")
+
+    console.print()
+    console.print("  Run: [bold]ghostqa run --product demo[/bold]")
     console.print()

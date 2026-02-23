@@ -46,6 +46,7 @@ _DEFAULT_STUCK_ABORT_THRESHOLD = 10
 _DEFAULT_ACTION_REPEAT_THRESHOLD = 3
 _DEFAULT_CONSECUTIVE_STUCK_LIMIT = 3
 _DEFAULT_HASH_HISTORY_SIZE = 10
+_DEFAULT_MAX_VERIFICATION_FAILURES = 2
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +195,7 @@ class AIStepRunner:
         consecutive_same_hash = 0
         recent_actions: list[tuple[str, str]] = []
         consecutive_stuck_decisions = 0
+        verification_failures = 0
 
         start_time = time.monotonic()
         action_idx = 0
@@ -324,15 +326,115 @@ class AIStepRunner:
 
             # -- Goal achieved -----------------------------------------------
             if decision.goal_achieved or decision.action == "done":
-                goal_achieved = True
                 actions_taken.append(self._action_record(
                     action_idx, decision, success=True,
                 ))
-                # Take a final screenshot
+                # Take a final screenshot (reused for verification if needed)
                 final_ss = self._screenshot_fn(step_id, action_idx, "goal-achieved")
                 if final_ss:
                     screenshots.append(final_ss)
-                break
+
+                # -- Post-goal verification against success_criteria ----------
+                success_criteria = step.get("success_criteria", [])
+                if success_criteria and final_ss:
+                    verification_b64 = self._read_screenshot_b64(final_ss)
+                    if verification_b64:
+                        verification_goal = (
+                            "VERIFICATION: You just claimed the goal was achieved. "
+                            "Look at the current screenshot and verify EACH of "
+                            "these success criteria:\n"
+                            + "\n".join(
+                                f"- {c}" for c in success_criteria
+                            )
+                            + "\n\nFor each criterion, state whether it is "
+                            "CONFIRMED or NOT CONFIRMED based on what you see. "
+                            "Set goal_achieved to true ONLY if ALL criteria "
+                            "are confirmed."
+                        )
+                        logger.info(
+                            "AI step %s: verifying %d success criteria",
+                            step_id, len(success_criteria),
+                        )
+                        try:
+                            v_decision: Decision = self._decider.decide(
+                                goal=verification_goal,
+                                screenshot_base64=verification_b64,
+                                ui_context="",
+                                force_api=True,
+                                stuck_context=None,
+                            )
+                            if v_decision.goal_achieved:
+                                logger.info(
+                                    "AI step %s: verification PASSED — "
+                                    "all success criteria confirmed",
+                                    step_id,
+                                )
+                                goal_achieved = True
+                                break
+                            else:
+                                verification_failures += 1
+                                failure_reason = (
+                                    v_decision.reasoning
+                                    or v_decision.observation
+                                    or "Criteria not confirmed"
+                                )
+                                logger.info(
+                                    "AI step %s: verification FAILED "
+                                    "(%d/%d) — %s",
+                                    step_id,
+                                    verification_failures,
+                                    _DEFAULT_MAX_VERIFICATION_FAILURES,
+                                    failure_reason,
+                                )
+                                findings.append({
+                                    "type": "verification_failure",
+                                    "step_id": step_id,
+                                    "action_idx": action_idx,
+                                    "reason": failure_reason,
+                                    "attempt": verification_failures,
+                                })
+                                if verification_failures >= _DEFAULT_MAX_VERIFICATION_FAILURES:
+                                    logger.warning(
+                                        "AI step %s: max verification "
+                                        "failures (%d) reached — "
+                                        "treating as hard fail",
+                                        step_id,
+                                        _DEFAULT_MAX_VERIFICATION_FAILURES,
+                                    )
+                                    error_msg = (
+                                        f"Verification failed "
+                                        f"{verification_failures} times: "
+                                        f"{failure_reason}"
+                                    )
+                                    goal_achieved = False
+                                    break
+                                # Inject verification failure context
+                                # into the goal so the agent knows what
+                                # wasn't confirmed on the next iteration
+                                goal = (
+                                    step.get("goal", "")
+                                    + f"\n\nPREVIOUS VERIFICATION FAILED: "
+                                    f"The AI claimed the goal was achieved "
+                                    f"but verification found: "
+                                    f"{failure_reason}. "
+                                    f"Please address the unconfirmed "
+                                    f"criteria before signalling done."
+                                )
+                                goal_achieved = False
+                                action_idx += 1
+                                continue  # Continue the loop
+                        except Exception as exc:
+                            logger.warning(
+                                "AI step %s: verification call failed: "
+                                "%s — trusting original claim",
+                                step_id, exc,
+                            )
+                            goal_achieved = True
+                            break
+                else:
+                    # No success_criteria defined — trust the AI's claim
+                    goal_achieved = True
+                    break
 
             # -- Stuck decision from AI --------------------------------------
             if decision.action == "stuck":

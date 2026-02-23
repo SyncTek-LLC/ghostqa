@@ -4,7 +4,25 @@
 
 GhostQA sends AI personas through your application — they look at the screen, decide what to do, and interact like real humans. No test scripts. No selectors. You describe personas and journeys in YAML, and GhostQA handles the rest.
 
-<!-- DEMO_VIDEO_URL -->
+```
+$ ghostqa run -p myapp
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ GhostQA Run                                                    ┃
+┃ Product: myapp   Budget: $5.00   Viewport: 1280x720            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+  ✓ Step 1/4: Navigate to homepage       PASS   3.2s   $0.0081
+  ✓ Step 2/4: Click signup link          PASS   2.1s   $0.0043
+  ✓ Step 3/4: Fill registration form     PASS   8.7s   $0.0312
+  ✓ Step 4/4: Verify dashboard loads     PASS   4.5s   $0.0127
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ALL TESTS PASSED                                                ┃
+┃ Steps: 4/4   Findings: 0   Duration: 18.5s   Cost: $0.0563     ┃
+┃ Run ID: GQA-RUN-20260222-143052-a1b2                            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
 
 ---
 
@@ -297,11 +315,31 @@ class MyCustomDecider:
         ...
 ```
 
-### MCP Server (coming soon)
+### MCP Server
 
-An MCP (Model Context Protocol) server is in development. This will let any MCP-compatible agent discover and invoke GhostQA as a tool -- run tests, read results, manage configs -- without shelling out to the CLI.
+GhostQA ships an MCP (Model Context Protocol) server. Any MCP-compatible agent (Claude Desktop, Cursor, Cline, custom agent tooling) can discover and invoke GhostQA as a tool -- run tests, read results, manage configs -- without shelling out to the CLI.
 
-See [docs/for-agents.md](docs/for-agents.md) for the full programmatic API reference.
+**Add to your MCP client config (`claude_desktop_config.json` or equivalent):**
+
+```json
+{
+  "ghostqa": {
+    "command": "ghostqa-mcp",
+    "args": []
+  }
+}
+```
+
+**Available tools:**
+
+| Tool | Description |
+|------|-------------|
+| `ghostqa_run` | Execute behavioral tests against a product. Synchronous — may take 45-300s. Incurs API costs (default budget: $5.00). |
+| `ghostqa_list_products` | List configured products and their available journeys |
+| `ghostqa_get_results` | Retrieve full structured results from a previous run by run ID |
+| `ghostqa_init` | Initialize a new GhostQA project directory |
+
+See [docs/for-agents.md](docs/for-agents.md) for the full programmatic API reference and MCP integration details.
 
 ## Limitations
 

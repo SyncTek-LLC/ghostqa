@@ -83,10 +83,12 @@ from ghostqa.cli.init_cmd import init  # noqa: E402
 from ghostqa.cli.install import install  # noqa: E402
 from ghostqa.cli.report import report  # noqa: E402
 from ghostqa.cli.run import run  # noqa: E402
+from ghostqa.cli.validate import validate  # noqa: E402
 
 app.command(name="init", help="Initialize a .ghostqa/ project directory.")(init)
 app.command(name="install", help="Install browser dependencies (Playwright).")(install)
 app.command(name="run", help="Run GhostQA behavioral tests.")(run)
 app.command(name="report", help="View or export run reports.")(report)
+app.command(name="validate", help="Validate YAML config without executing tests (zero cost).")(validate)
 app.command(name="dashboard", help="Launch the evidence dashboard viewer.")(dashboard)
 app.add_typer(config_app, name="config", help="View and manage GhostQA configuration.")

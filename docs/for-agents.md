@@ -9,7 +9,7 @@ GhostQA provides three integration surfaces:
 1. **CLI with JSON output** -- Simplest. Shell out to `ghostqa run` with `--output json`.
 2. **Python API** -- Import and invoke directly. Full control over config and execution.
 3. **Federated Protocol** -- Swap in your own AI decider or action executor. Use GhostQA's loop with your own brain.
-4. **MCP Server** (coming soon) -- Model Context Protocol server for agent-native tool discovery.
+4. **MCP Server** -- Shipped. Model Context Protocol server for agent-native tool discovery and invocation.
 
 ## CLI Integration
 
@@ -286,26 +286,86 @@ print(f"Actions taken: {result.action_count}")
 print(f"UX observations: {result.ux_observations}")
 ```
 
-## MCP Server (Coming Soon)
+## MCP Server
 
-An MCP (Model Context Protocol) server for GhostQA is in development. When available, it will expose GhostQA as a set of structured tools that any MCP-compatible agent can discover and invoke:
+GhostQA ships a native MCP (Model Context Protocol) server. Any MCP-compatible agent host (Claude Desktop, Cursor, Cline, or a custom agent using the MCP SDK) can discover and invoke GhostQA as a structured tool without shelling out to the CLI.
 
-**Planned tools:**
+### Setup
+
+Add GhostQA to your MCP client config:
+
+```json
+{
+  "ghostqa": {
+    "command": "ghostqa-mcp",
+    "args": []
+  }
+}
+```
+
+Alternatively, run it directly:
+
+```bash
+ghostqa-mcp
+# or
+python -m ghostqa.mcp
+```
+
+Both use stdio transport (stdin/stdout). No port configuration required.
+
+### Available Tools
 
 | Tool | Description |
 |------|-------------|
-| `ghostqa_run` | Execute a test run against a product |
-| `ghostqa_status` | Check the status of a running or completed run |
-| `ghostqa_results` | Read structured results from a completed run |
-| `ghostqa_list_products` | List configured products |
-| `ghostqa_list_journeys` | List available journeys for a product |
-| `ghostqa_cost_check` | Check cumulative budget status |
+| `ghostqa_run` | Execute behavioral tests against a product. Synchronous — may take 45-300 seconds. Incurs Anthropic API costs (default budget $5.00). |
+| `ghostqa_list_products` | List configured products and available journeys. |
+| `ghostqa_get_results` | Read full structured results from a completed run by run ID. |
+| `ghostqa_init` | Initialize a new GhostQA project directory with sample configs. |
 
-This will enable agents to:
-1. Discover GhostQA as an available testing tool
-2. Run behavioral tests as part of a larger workflow
-3. Read and act on findings without parsing CLI output
-4. Respect budget constraints natively
+### ghostqa_run Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `product` | string | Yes | Product name (matches filename in `.ghostqa/products/`) |
+| `journey` | string | No | Journey ID to run. Runs all journeys if omitted. |
+| `level` | string | No | `smoke`, `standard`, or `thorough` |
+| `budget` | float | No | Cost cap in USD (default: 5.00) |
+| `directory` | string | No | Project root directory. Defaults to CWD. |
+
+### ghostqa_run Response
+
+The MCP tool response uses the same JSON schema as `--output json`. Key fields:
+
+```json
+{
+  "passed": true,
+  "run_id": "GQA-RUN-20260222-143052-a1b2",
+  "step_reports": [...],
+  "findings": [],
+  "cost_usd": 0.4521,
+  "cost_summary": {
+    "budget_limit_usd": 5.0,
+    "budget_remaining_usd": 4.5479,
+    "budget_exceeded": false
+  }
+}
+```
+
+### Agent Workflow with MCP
+
+Agents can use GhostQA MCP tools to verify generated code:
+
+```
+1. Agent writes application code
+2. Agent starts dev server (e.g., npm run dev)
+3. Agent calls ghostqa_list_products to confirm product config exists
+4. Agent calls ghostqa_run with product name and budget cap
+5. Agent reads findings from the response
+6. If tests fail: agent fixes issues and loops back to step 4
+7. If tests pass: proceed to commit
+```
+
+This enables fully autonomous quality verification loops without human intervention.
 
 ## Integration Patterns
 

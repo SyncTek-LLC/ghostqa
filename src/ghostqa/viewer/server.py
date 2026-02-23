@@ -154,8 +154,23 @@ class _DashboardHandler(BaseHTTPRequestHandler):
         )
         self._send_html(html)
 
+    # SECURITY (FIND-006): Validate run_id format before using it in path
+    # construction.  An unsanitised run_id could be used for path traversal
+    # (e.g. "../../../etc/passwd").  Only IDs matching the GQA-RUN-* pattern
+    # are accepted; all others are rejected with a 400 Bad Request.
+    _RUN_ID_RE = re.compile(r"^GQA-RUN-\d{8}-\d{6}-[a-z0-9]{4}$")
+
+    def _validate_run_id(self, run_id: str) -> bool:
+        """Return True if run_id matches the expected safe format."""
+        return bool(self._RUN_ID_RE.match(run_id))
+
     def _serve_detail(self, run_id: str) -> None:
         """Render the run detail page."""
+        # SECURITY (FIND-006): Reject run IDs that don't match expected format
+        if not self._validate_run_id(run_id):
+            self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid run ID format: {run_id}")
+            return
+
         run_dir = self.evidence_dir / run_id
         if not run_dir.is_dir():
             self._send_error(HTTPStatus.NOT_FOUND, f"Run not found: {run_id}")
@@ -203,6 +218,11 @@ class _DashboardHandler(BaseHTTPRequestHandler):
 
     def _serve_screenshot(self, run_id: str, filename: str) -> None:
         """Serve a screenshot file from a run's evidence directory."""
+        # SECURITY (FIND-006): Validate run_id before using in path construction
+        if not self._validate_run_id(run_id):
+            self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid run ID format: {run_id}")
+            return
+
         # Sanitize filename to prevent path traversal
         safe_name = Path(filename).name
         file_path = self.evidence_dir / run_id / safe_name
@@ -225,6 +245,11 @@ class _DashboardHandler(BaseHTTPRequestHandler):
 
     def _serve_report_download(self, run_id: str) -> None:
         """Serve report.md as a download."""
+        # SECURITY (FIND-006): Validate run_id before using in path construction
+        if not self._validate_run_id(run_id):
+            self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid run ID format: {run_id}")
+            return
+
         file_path = self.evidence_dir / run_id / "report.md"
         if not file_path.exists():
             self._send_error(HTTPStatus.NOT_FOUND, "report.md not found")
@@ -322,9 +347,18 @@ class DashboardServer:
         server.stop()
     """
 
-    def __init__(self, evidence_dir: Path, port: int = 8199) -> None:
+    def __init__(
+        self,
+        evidence_dir: Path,
+        port: int = 8199,
+        host: str = "127.0.0.1",
+    ) -> None:
         self.evidence_dir = evidence_dir.resolve()
         self.port = port
+        # SECURITY (FIND-005): Default to localhost only. Callers must explicitly
+        # pass host="0.0.0.0" to expose the server on the network, which is
+        # intentionally non-default.
+        self.host = host
         self._httpd: HTTPServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -345,6 +379,17 @@ class DashboardServer:
             logger.warning("Server is already running on port %d", self.port)
             return
 
+        # SECURITY (FIND-005): Warn loudly when binding to a non-localhost address.
+        # The dashboard has no authentication — network exposure is intentional but
+        # should only happen when the operator explicitly opts in via --host.
+        if self.host not in ("127.0.0.1", "localhost", "::1"):
+            logger.warning(
+                "WARNING: Dashboard server has no authentication. "
+                "Binding to %s:%d — only use on trusted networks.",
+                self.host,
+                self.port,
+            )
+
         # Create a handler class with our config bound
         evidence_dir = self.evidence_dir
         jinja_env = self._jinja_env
@@ -355,14 +400,14 @@ class DashboardServer:
         Handler.evidence_dir = evidence_dir  # type: ignore[attr-defined]
         Handler.jinja_env = jinja_env  # type: ignore[attr-defined]
 
-        self._httpd = HTTPServer(("127.0.0.1", self.port), Handler)
+        self._httpd = HTTPServer((self.host, self.port), Handler)
         self._thread = threading.Thread(
             target=self._httpd.serve_forever,
             name="ghostqa-dashboard",
             daemon=True,
         )
         self._thread.start()
-        logger.info("Dashboard server started at http://127.0.0.1:%d", self.port)
+        logger.info("Dashboard server started at http://%s:%d", self.host, self.port)
 
     def stop(self) -> None:
         """Stop the dashboard server."""
@@ -378,7 +423,7 @@ class DashboardServer:
     @property
     def url(self) -> str:
         """The base URL of the running server."""
-        return f"http://127.0.0.1:{self.port}"
+        return f"http://{self.host}:{self.port}"
 
     @property
     def is_running(self) -> bool:

@@ -48,6 +48,18 @@ def dashboard(
         "--no-open",
         help="Don't automatically open the browser.",
     ),
+    # SECURITY (FIND-005): Host flag lets operators explicitly opt into network
+    # binding.  Default is localhost-only.  Non-localhost triggers a warning
+    # because the dashboard has no authentication.
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help=(
+            "Host address to bind the dashboard server to. "
+            "Default: 127.0.0.1 (localhost only). "
+            "Use 0.0.0.0 to expose on the network — WARNING: no authentication."
+        ),
+    ),
 ) -> None:
     """Launch the GhostQA evidence dashboard viewer.
 
@@ -67,7 +79,18 @@ def dashboard(
         )
         raise typer.Exit(code=0)
 
-    url = f"http://localhost:{port}"
+    # SECURITY (FIND-005): Warn when binding to a non-localhost address
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        console.print(
+            Panel(
+                f"[yellow]WARNING:[/yellow] Dashboard server has no authentication.\n"
+                f"Binding to [bold]{host}:{port}[/bold] — only use on trusted networks.",
+                title="[yellow]Network Binding Warning[/yellow]",
+                border_style="yellow",
+            )
+        )
+
+    url = f"http://{host}:{port}"
 
     console.print()
     console.print(
@@ -88,7 +111,7 @@ def dashboard(
     # The full implementation will be a separate module (ghostqa.dashboard.server).
     # For now, use a minimal built-in HTTP server that serves evidence files.
     try:
-        _serve_evidence(edir, port)
+        _serve_evidence(edir, port, host)
     except KeyboardInterrupt:
         console.print("\n[dim]Dashboard stopped.[/dim]")
     except OSError as exc:
@@ -103,7 +126,7 @@ def dashboard(
         raise typer.Exit(code=3)
 
 
-def _serve_evidence(evidence_dir: Path, port: int) -> None:
+def _serve_evidence(evidence_dir: Path, port: int, host: str = "127.0.0.1") -> None:
     """Serve evidence directory using Python's built-in HTTP server.
 
     This is a minimal fallback. The full dashboard with React/Jinja
@@ -117,5 +140,6 @@ def _serve_evidence(evidence_dir: Path, port: int) -> None:
         directory=str(evidence_dir),
     )
 
-    with http.server.HTTPServer(("", port), handler) as httpd:
+    # SECURITY (FIND-005): Bind to host (defaults to 127.0.0.1, not 0.0.0.0).
+    with http.server.HTTPServer((host, port), handler) as httpd:
         httpd.serve_forever()

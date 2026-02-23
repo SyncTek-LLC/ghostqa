@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acme App</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; color: #333; }
+        nav { background: #1a1a2e; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        nav .logo { color: #fff; font-size: 20px; font-weight: 700; }
+        nav .links a { color: #ccc; text-decoration: none; margin-left: 24px; font-size: 14px; }
+        nav .links a:hover { color: #fff; }
+        nav .links a.cta { background: #4361ee; color: #fff; padding: 8px 20px; border-radius: 6px; }
+        nav .links a.cta:hover { background: #3a56d4; }
+        .hero { text-align: center; padding: 100px 32px 80px; }
+        .hero h1 { font-size: 48px; margin-bottom: 16px; color: #1a1a2e; }
+        .hero p { font-size: 18px; color: #666; max-width: 560px; margin: 0 auto 32px; }
+        .hero a.btn { display: inline-block; background: #4361ee; color: #fff; padding: 14px 36px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: 600; }
+        .hero a.btn:hover { background: #3a56d4; }
+        .features { display: flex; justify-content: center; gap: 40px; padding: 0 32px 80px; flex-wrap: wrap; }
+        .feature { background: #fff; border-radius: 12px; padding: 32px; max-width: 280px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .feature h3 { margin-bottom: 8px; color: #1a1a2e; }
+        .feature p { font-size: 14px; color: #666; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo">Acme App</div>
+        <div class="links">
+            <a href="/">Home</a>
+            <a href="/signup" class="cta">Sign Up</a>
+        </div>
+    </nav>
+    <div class="hero">
+        <h1>Welcome to Acme App</h1>
+        <p>The easiest way to manage your projects, track progress, and collaborate with your team.</p>
+        <a href="/signup" class="btn">Get Started Free</a>
+    </div>
+    <div class="features">
+        <div class="feature">
+            <h3>Projects</h3>
+            <p>Organize work into projects with boards, lists, and cards.</p>
+        </div>
+        <div class="feature">
+            <h3>Analytics</h3>
+            <p>Track progress with real-time dashboards and reports.</p>
+        </div>
+        <div class="feature">
+            <h3>Team</h3>
+            <p>Invite your team and collaborate in real time.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -168,9 +168,20 @@ class APIRunner:
             # Resolve fixture path from the configured fixtures directory
             fixture_path: Path | None = None
             if self._fixtures_dir is not None:
-                fixture_path = self._fixtures_dir / fixture_rel
-                if not fixture_path.is_file():
-                    fixture_path = None
+                resolved_fixtures_dir = self._fixtures_dir.resolve()
+                candidate = (self._fixtures_dir / fixture_rel).resolve()
+                # SECURITY (FIND-007): Verify the resolved fixture path is
+                # within fixtures_dir to prevent a malicious product YAML
+                # from reading arbitrary files (e.g. fixtures_dir=/etc,
+                # fixture_rel=passwd) and uploading them to an API endpoint.
+                try:
+                    candidate.relative_to(resolved_fixtures_dir)
+                    path_safe = True
+                except ValueError:
+                    path_safe = False
+
+                if path_safe and candidate.is_file():
+                    fixture_path = candidate
 
             if fixture_path is None or not fixture_path.is_file():
                 search_info = (

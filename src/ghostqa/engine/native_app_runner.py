@@ -19,6 +19,7 @@ import hashlib
 import json
 import logging
 import plistlib
+import re
 import shutil
 import subprocess
 import time
@@ -278,7 +279,7 @@ class NativeAppRunner:
 
         # Launch the application
         logger.info("Launching native app: %s", self._app_path)
-        subprocess.run(["open", "-a", self._app_path], check=True, timeout=30)
+        subprocess.run(["open", "-g", "-a", self._app_path], check=True, timeout=30)
 
         # Wait for the application to appear
         self._pid = self._wait_for_app(timeout=15)
@@ -682,6 +683,52 @@ class NativeAppRunner:
 
         return None
 
+    def _find_element_at_coordinates(self, x: float, y: float) -> UIElement | None:
+        """Find the accessibility element at screen coordinates (x, y).
+
+        Traverses the AX tree and finds the smallest element whose bounding
+        box contains the point. Prefers interactive elements (buttons, text
+        fields) over containers (groups, windows).
+        """
+        if self._app_ref is None:
+            return None
+
+        elements = self._traverse_tree(self._app_ref)
+
+        # Filter to elements that contain the point
+        containing: list[UIElement] = []
+        for el in elements:
+            if el.position is None or el.size is None:
+                continue
+            ex, ey = el.position
+            ew, eh = el.size
+            if ex <= x <= ex + ew and ey <= y <= ey + eh:
+                containing.append(el)
+
+        if not containing:
+            return None
+
+        # Prefer interactive elements (buttons, text fields, etc.)
+        interactive_roles = {
+            "AXButton", "AXTextField", "AXTextArea", "AXCheckBox",
+            "AXRadioButton", "AXPopUpButton", "AXComboBox",
+            "AXSlider", "AXLink", "AXMenuItem", "AXTab",
+        }
+
+        interactive = [el for el in containing if el.role in interactive_roles]
+        if interactive:
+            # Return the smallest interactive element (most specific)
+            return min(
+                interactive,
+                key=lambda el: (el.size[0] * el.size[1]) if el.size else float("inf"),
+            )
+
+        # Fallback: smallest containing element
+        return min(
+            containing,
+            key=lambda el: (el.size[0] * el.size[1]) if el.size else float("inf"),
+        )
+
     def _hash_accessibility_tree(self) -> str:
         """Hash the current accessibility tree for stuck detection.
 
@@ -712,18 +759,38 @@ class NativeAppRunner:
     # -- Actions -------------------------------------------------------------
 
     def _action_click(self, target: str, role: str = "") -> bool:
-        """Click an element identified by *target* (title substring).
+        """Click an element identified by *target* (title substring or coordinates).
 
-        Tries AXPress first; falls back to coordinate-based click via
-        CGEvent.
+        Uses AXPress (process-level, works in background) as the primary
+        mechanism.  Falls back to AXConfirm as an alternative AX action.
+        Does NOT use CGEvent coordinate-based clicks (those steal focus).
+
+        If *target* contains coordinates (e.g. ``"195,420"`` or
+        ``"button at 195, 420"``), the runner will attempt to resolve
+        them to the nearest AX element when text-based search fails.
         """
+        # Try to extract coordinates from the target string
+        coord_match = re.search(r"(\d+)\s*,\s*(\d+)", target)
+
+        # First try text-based search
         element = self._find_element(target, role)
+
+        # If text search fails and we have coordinates, try coordinate resolution
+        if element is None and coord_match:
+            x, y = float(coord_match.group(1)), float(coord_match.group(2))
+            element = self._find_element_at_coordinates(x, y)
+            if element:
+                logger.info(
+                    "Resolved coordinates (%d,%d) to element: role=%s title='%s'",
+                    x, y, element.role, element.title,
+                )
+
         if element is None:
             logger.warning("Click target not found: '%s' (role=%s)", target, role)
             return False
 
-        # Try AXPress action
         if element._ref is not None:
+            # Try AXPress action (process-level, no focus steal)
             try:
                 err = AXUIElementPerformAction(element._ref, "AXPress")
                 if err == kAXErrorSuccess:
@@ -732,35 +799,51 @@ class NativeAppRunner:
             except Exception:
                 pass
 
-        # Fallback: coordinate-based click
-        if element.position and element.size:
-            x = element.position[0] + element.size[0] / 2
-            y = element.position[1] + element.size[1] / 2
-            return self._click_at(x, y)
+            # Try AXConfirm as an alternative AX action
+            try:
+                err = AXUIElementPerformAction(element._ref, "AXConfirm")
+                if err == kAXErrorSuccess:
+                    logger.debug("AXConfirm succeeded on '%s'", target)
+                    return True
+            except Exception:
+                pass
 
-        logger.warning("Cannot click '%s': no position or AXPress support", target)
+        logger.warning(
+            "Cannot click '%s': AXPress and AXConfirm both failed (no CGEvent fallback — background mode)",
+            target,
+        )
         return False
 
     def _action_type(self, target: str, value: str, role: str = "") -> bool:
-        """Type text into a field by focusing it and pasting via AppleScript.
+        """Type text into a field via the Accessibility API.
 
-        Uses targeted AppleScript to ensure keystrokes go to the correct
-        application. This properly triggers SwiftUI text bindings.
+        Approach 1 (preferred): Set AXValue directly on the element via
+        ``AXUIElementSetAttributeValue``.  This works for NSTextField and
+        NSTextView (backing SwiftUI TextField / TextEditor) without
+        requiring the app to be frontmost.
+
+        Approach 2 (fallback): Clipboard paste via process-targeted
+        AppleScript (does NOT activate the app first).
         """
         element = self._find_element(target, role)
         if element is None:
             logger.warning("Type target not found: '%s'", target)
             return False
 
+        # -- Approach 1: AXSetValue (no focus required) -----------------------
         if element._ref is not None:
-            # Focus the element
-            AXUIElementPerformAction(element._ref, "AXPress")
-            time.sleep(0.2)
+            try:
+                err = AXUIElementSetAttributeValue(element._ref, "AXValue", value)
+                if err == kAXErrorSuccess:
+                    logger.debug("AXSetValue succeeded for '%s' (%d chars)", target, len(value))
+                    return True
+                else:
+                    logger.debug("AXSetValue returned error %s for '%s'", err, target)
+            except Exception as exc:
+                logger.debug("AXSetValue failed for '%s': %s", target, exc)
 
-        # Get the app name for targeted AppleScript
+        # -- Approach 2: Clipboard paste via targeted AppleScript (no app activation)
         app_name = Path(self._app_path).stem
-
-        # Approach 1: Clipboard paste via targeted AppleScript
         try:
             from AppKit import NSPasteboard, NSPasteboardTypeString  # type: ignore[import-untyped]
             pb = NSPasteboard.generalPasteboard()
@@ -770,7 +853,8 @@ class NativeAppRunner:
             pb.setString_forType_(value, NSPasteboardTypeString)
             time.sleep(0.05)
 
-            # Select all in current field and paste
+            # Select all in current field and paste — targets the specific
+            # process without bringing it to the foreground.
             script = f'''
                 tell application "System Events"
                     tell process "{app_name}"
@@ -799,29 +883,119 @@ class NativeAppRunner:
         except Exception as exc:
             logger.debug("Paste approach failed: %s", exc)
 
-        # Approach 2: Character-by-character AppleScript keystrokes
-        logger.debug("Falling back to character-by-character typing for '%s'", target)
-        for char in value:
-            self._applescript_keystroke(char)
-            time.sleep(0.02)
-
-        return True
+        logger.warning("All type approaches failed for '%s'", target)
+        return False
 
     def _action_key_press(self, key_name: str) -> bool:
-        """Press a named key (e.g. ``return``, ``tab``, ``escape``).
+        """Press a named key or key combo (e.g. ``return``, ``cmd+n``, ``shift+tab``).
 
-        Returns True if the key code was found and the event was posted.
+        Supports modifier+key combinations separated by ``+``:
+        - ``cmd`` / ``command`` -> Command
+        - ``shift`` -> Shift
+        - ``opt`` / ``option`` / ``alt`` -> Option
+        - ``ctrl`` / ``control`` -> Control
+
+        Uses process-targeted AppleScript ``key code`` to send the key
+        event to the specific application without requiring it to be
+        frontmost.  For return/enter without modifiers, tries
+        AXPress/AXConfirm on the focused element first (pure AX, no
+        focus steal).
+
+        Returns True if the key was sent successfully.
         """
         key_lower = key_name.lower().strip()
-        key_code = _KEY_CODES.get(key_lower)
+
+        # Parse modifier+key combos (e.g. "cmd+n", "shift+tab", "cmd+shift+s")
+        modifiers: list[str] = []
+        key_part = key_lower
+        if "+" in key_lower:
+            parts = [p.strip() for p in key_lower.split("+")]
+            key_part = parts[-1]  # Last part is the actual key
+            for mod in parts[:-1]:
+                if mod in ("cmd", "command"):
+                    modifiers.append("command down")
+                elif mod == "shift":
+                    modifiers.append("shift down")
+                elif mod in ("opt", "option", "alt"):
+                    modifiers.append("option down")
+                elif mod in ("ctrl", "control"):
+                    modifiers.append("control down")
+
+        key_code = _KEY_CODES.get(key_part)
         if key_code is None:
-            logger.warning("Unknown key name: '%s'", key_name)
+            logger.warning("Unknown key name: '%s' (parsed key_part='%s')", key_name, key_part)
             return False
-        self._send_key_event(key_code, False)
-        return True
+
+        # For return/enter without modifiers, try AX actions on the focused element first
+        if key_part in ("return", "enter") and not modifiers and self._app_ref is not None:
+            focused = self._get_ax_attribute(self._app_ref, "AXFocusedUIElement")
+            if focused is not None:
+                try:
+                    err = AXUIElementPerformAction(focused, "AXPress")
+                    if err == kAXErrorSuccess:
+                        logger.debug("AXPress on focused element succeeded for '%s'", key_name)
+                        return True
+                except Exception:
+                    pass
+                try:
+                    err = AXUIElementPerformAction(focused, "AXConfirm")
+                    if err == kAXErrorSuccess:
+                        logger.debug("AXConfirm on focused element succeeded for '%s'", key_name)
+                        return True
+                except Exception:
+                    pass
+
+        # Process-targeted AppleScript key code (with optional modifiers)
+        app_name = Path(self._app_path).stem
+        if modifiers:
+            modifier_str = " using {" + ", ".join(modifiers) + "}"
+            script = f'''
+                tell application "System Events"
+                    tell process "{app_name}"
+                        key code {key_code}{modifier_str}
+                    end tell
+                end tell
+            '''
+        else:
+            script = f'''
+                tell application "System Events"
+                    tell process "{app_name}"
+                        key code {key_code}
+                    end tell
+                end tell
+            '''
+        try:
+            result = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                logger.debug(
+                    "AppleScript key code %d%s sent to '%s'",
+                    key_code,
+                    f" with modifiers [{', '.join(modifiers)}]" if modifiers else "",
+                    app_name,
+                )
+                return True
+            else:
+                logger.warning(
+                    "AppleScript key press failed for '%s': %s",
+                    key_name, result.stderr.strip(),
+                )
+                return False
+        except Exception as exc:
+            logger.warning("Key press '%s' failed: %s", key_name, exc)
+            return False
 
     def _click_at(self, x: float, y: float) -> bool:
-        """Send a mouse-click event at screen coordinates (x, y)."""
+        """Send a mouse-click event at screen coordinates (x, y).
+
+        .. deprecated::
+            This method uses CGEvent which operates at the screen level,
+            moves the physical mouse cursor, and requires the target window
+            to be frontmost.  It is retained for backward compatibility but
+            is no longer called by any action method.  Use AXPress instead.
+        """
         try:
             point = CGPoint(x, y)
             event_down = CGEventCreateMouseEvent(
@@ -841,7 +1015,14 @@ class NativeAppRunner:
             return False
 
     def _send_key_event(self, key_code: int, shift: bool = False) -> None:
-        """Post a keyboard event for the given virtual key code."""
+        """Post a keyboard event for the given virtual key code.
+
+        .. deprecated::
+            This method uses CGEvent which posts events to whichever
+            application is frontmost.  It is retained for backward
+            compatibility but is no longer called by any action method.
+            Use process-targeted AppleScript ``key code`` instead.
+        """
         try:
             event_down = CGEventCreateKeyboardEvent(None, key_code, True)
             event_up = CGEventCreateKeyboardEvent(None, key_code, False)
@@ -859,7 +1040,13 @@ class NativeAppRunner:
 
     @staticmethod
     def _applescript_keystroke(char: str) -> None:
-        """Send a single character via AppleScript as a last resort."""
+        """Send a single character via AppleScript as a last resort.
+
+        .. deprecated::
+            This method sends untargeted keystrokes to whichever app is
+            frontmost.  It is retained for backward compatibility but is
+            no longer called by ``_action_type()``.
+        """
         try:
             subprocess.run(
                 [
@@ -873,6 +1060,96 @@ class NativeAppRunner:
         except Exception as exc:
             logger.warning("AppleScript keystroke '%s' failed: %s", char, exc)
 
+    # -- Window ID Refresh ---------------------------------------------------
+
+    def _refresh_window_id(self) -> None:
+        """Re-query the main window ID for the app's PID.
+
+        Window IDs become stale when:
+        - The app is restarted
+        - A window is closed and recreated
+        - The app opens new windows (sheets, dialogs, preferences)
+
+        This method uses ``CGWindowListCopyWindowInfo`` to find the current
+        main window for our PID and updates ``self._window_id``.  First
+        tries on-screen windows, then falls back to all windows (including
+        background) for resilience when the app is launched with ``open -g``.
+        If no window is found at all the cached ID is left unchanged (the
+        screenshot fallback in ``_take_screenshot`` will handle it).
+        """
+        if self._pid is None:
+            return
+
+        try:
+            from Quartz import (  # type: ignore[import-untyped]
+                CGWindowListCopyWindowInfo,
+                kCGWindowListOptionOnScreenOnly,
+                kCGWindowListOptionAll,
+                kCGNullWindowID,
+            )
+
+            window_list = CGWindowListCopyWindowInfo(
+                kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+            )
+
+            # Collect all on-screen windows for our PID, preferring the
+            # frontmost (lowest kCGWindowLayer, then highest kCGWindowNumber
+            # as a tie-breaker for the most recently created window).
+            candidates: list[tuple[int, float, int]] = []  # (layer, area, wid)
+            for win in window_list:
+                if win.get("kCGWindowOwnerPID") == self._pid:
+                    wid = win.get("kCGWindowNumber")
+                    layer = win.get("kCGWindowLayer", 0)
+                    # Filter out tiny windows (menu bar, toolbar, status items)
+                    bounds = win.get("kCGWindowBounds", {})
+                    w = bounds.get("Width", 0)
+                    h = bounds.get("Height", 0)
+                    if wid and h >= 50 and w >= 50:
+                        candidates.append((int(layer), float(w * h), int(wid)))
+
+            # Fallback: try all windows if no on-screen candidates found
+            if not candidates:
+                logger.debug(
+                    "No on-screen windows for pid=%s, trying kCGWindowListOptionAll",
+                    self._pid,
+                )
+                window_list = CGWindowListCopyWindowInfo(
+                    kCGWindowListOptionAll, kCGNullWindowID
+                )
+                for win in window_list:
+                    if win.get("kCGWindowOwnerPID") == self._pid:
+                        wid = win.get("kCGWindowNumber")
+                        layer = win.get("kCGWindowLayer", 0)
+                        # Filter out tiny windows (menu bar, toolbar, status items)
+                        bounds = win.get("kCGWindowBounds", {})
+                        w = bounds.get("Width", 0)
+                        h = bounds.get("Height", 0)
+                        if wid and h >= 50 and w >= 50:
+                            candidates.append((int(layer), float(w * h), int(wid)))
+
+            if candidates:
+                logger.debug(
+                    "Window candidates for pid=%s: %s",
+                    self._pid,
+                    [(f"wid={c[2]}", f"area={c[1]}", f"layer={c[0]}") for c in candidates],
+                )
+                # Sort by layer ascending (0 = normal windows), then by area
+                # descending (largest first), then wid descending (newest as
+                # tie-breaker).
+                candidates.sort(key=lambda c: (c[0], -c[1], -c[2]))
+                new_wid = candidates[0][2]
+                if new_wid != self._window_id:
+                    logger.info(
+                        "Window ID refreshed: %s -> %s (pid=%s, %d candidate(s))",
+                        self._window_id,
+                        new_wid,
+                        self._pid,
+                        len(candidates),
+                    )
+                    self._window_id = new_wid
+        except Exception as exc:
+            logger.warning("Failed to refresh window ID: %s", exc)
+
     # -- Screenshot ----------------------------------------------------------
 
     def _take_screenshot(
@@ -883,8 +1160,15 @@ class NativeAppRunner:
     ) -> str | None:
         """Take a screenshot of the app window using ``screencapture``.
 
+        Before capturing, refreshes the window ID to avoid stale references.
+        If window-specific capture fails, falls back to full-screen capture.
+
         Returns the file path, or None on failure.
         """
+        # Refresh window ID to avoid stale references (Bug fix: window IDs
+        # become invalid when the app recreates windows or opens dialogs)
+        self._refresh_window_id()
+
         self._evidence_dir.mkdir(parents=True, exist_ok=True)
         filename = f"{step_id}-{action_idx:03d}-{label}.png"
         filepath = self._evidence_dir / filename
@@ -900,10 +1184,109 @@ class NativeAppRunner:
         try:
             subprocess.run(cmd, capture_output=True, timeout=10, check=True)
             logger.debug("Screenshot saved: %s", filepath)
-            return str(filepath)
         except Exception as exc:
-            logger.warning("Screenshot failed: %s", exc)
+            logger.warning("Window capture command failed: %s", exc)
+
+        # Check if the captured image is too small (menu bar capture).
+        # A 48px-tall PNG is a menu-bar-only capture (24 CSS points @ 2x).
+        # Delete it so the fallback logic below re-captures full-screen.
+        if filepath.exists() and filepath.stat().st_size > 0 and self._window_id is not None:
+            try:
+                result = subprocess.run(
+                    ["sips", "--getProperty", "pixelHeight", str(filepath)],
+                    capture_output=True, timeout=5, text=True,
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.splitlines():
+                        if "pixelHeight" in line:
+                            height = int(line.split(":")[-1].strip())
+                            if height < 200:  # 100 CSS points at @2x
+                                logger.warning(
+                                    "Window capture too small (%dpx tall) for WID %s "
+                                    "— falling back to full-screen",
+                                    height,
+                                    self._window_id,
+                                )
+                                filepath.unlink(exist_ok=True)  # Remove bad capture
+                                break
+            except Exception:
+                pass  # Don't fail on size check
+
+        # If window-specific capture failed (exit code 1, empty file, or no
+        # file at all), fall back to full-screen capture.  This prevents
+        # sending empty base64 strings to the API.
+        if not filepath.exists() or filepath.stat().st_size == 0:
+            logger.warning(
+                "Window capture failed for WID %s — falling back to full-screen",
+                self._window_id,
+            )
+            try:
+                cmd = ["screencapture", "-x", str(filepath)]
+                subprocess.run(cmd, capture_output=True, timeout=10, check=True)
+            except Exception as exc:
+                logger.warning("Full-screen screenshot fallback also failed: %s", exc)
+                return None
+
+        # Final check — if we still have no usable file, give up
+        if not filepath.exists() or filepath.stat().st_size == 0:
+            logger.warning("Screenshot file missing or empty after all attempts: %s", filepath)
             return None
+
+        # -- Post-capture compression ------------------------------------------
+        # macOS screencapture on Retina displays produces @2x PNGs (5-13 MB)
+        # that exceed the Anthropic API 5 MB image limit. Use macOS built-in
+        # ``sips`` to resize and/or convert so the file stays under 4 MB
+        # (leaving margin below the 5 MB hard limit).
+        _MAX_BYTES = 4 * 1024 * 1024  # 4 MB threshold
+
+        try:
+            size = filepath.stat().st_size
+            if size > _MAX_BYTES:
+                logger.info(
+                    "Screenshot %s is %.1f MB — resizing with sips",
+                    filepath.name,
+                    size / (1024 * 1024),
+                )
+                subprocess.run(
+                    ["sips", "--resampleWidth", "1440", str(filepath)],
+                    capture_output=True,
+                    timeout=15,
+                    check=True,
+                )
+                size = filepath.stat().st_size
+
+            if size > _MAX_BYTES:
+                # Still too large — convert to JPEG at quality 80
+                jpg_path = filepath.with_suffix(".jpg")
+                logger.info(
+                    "Screenshot still %.1f MB after resize — converting to JPEG",
+                    size / (1024 * 1024),
+                )
+                subprocess.run(
+                    [
+                        "sips",
+                        "-s", "format", "jpeg",
+                        "-s", "formatOptions", "80",
+                        str(filepath),
+                        "--out", str(jpg_path),
+                    ],
+                    capture_output=True,
+                    timeout=15,
+                    check=True,
+                )
+                # Remove the oversized PNG and return the JPEG path
+                filepath.unlink(missing_ok=True)
+                logger.info(
+                    "Compressed screenshot: %s (%.1f MB)",
+                    jpg_path.name,
+                    jpg_path.stat().st_size / (1024 * 1024),
+                )
+                return str(jpg_path)
+        except Exception as exc:
+            # Compression is best-effort — return whatever we have
+            logger.warning("Screenshot compression failed: %s", exc)
+
+        return str(filepath)
 
     # -- App Discovery -------------------------------------------------------
 
@@ -965,8 +1348,10 @@ class NativeAppRunner:
     def _get_main_window_id(self) -> int | None:
         """Retrieve the CGWindowID for the main window of the app.
 
-        Uses ``CGWindowListCopyWindowInfo`` to find the frontmost window
-        belonging to the app's PID.
+        Uses ``CGWindowListCopyWindowInfo`` to find the window belonging
+        to the app's PID.  First tries on-screen windows, then falls back
+        to all windows (including background) for resilience when the app
+        is launched with ``open -g``.
         """
         if self._pid is None:
             return None
@@ -974,11 +1359,27 @@ class NativeAppRunner:
             from Quartz import (  # type: ignore[import-untyped]
                 CGWindowListCopyWindowInfo,
                 kCGWindowListOptionOnScreenOnly,
+                kCGWindowListOptionAll,
                 kCGNullWindowID,
             )
 
+            # Try on-screen windows first
             window_list = CGWindowListCopyWindowInfo(
                 kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+            )
+            for win in window_list:
+                if win.get("kCGWindowOwnerPID") == self._pid:
+                    wid = win.get("kCGWindowNumber")
+                    if wid:
+                        return int(wid)
+
+            # Fallback: include all windows (background apps)
+            logger.debug(
+                "No on-screen window for pid=%s, trying kCGWindowListOptionAll",
+                self._pid,
+            )
+            window_list = CGWindowListCopyWindowInfo(
+                kCGWindowListOptionAll, kCGNullWindowID
             )
             for win in window_list:
                 if win.get("kCGWindowOwnerPID") == self._pid:
@@ -989,6 +1390,86 @@ class NativeAppRunner:
             logger.warning("Failed to get window ID: %s", exc)
 
         return None
+
+    # -- Space Isolation (aspirational) --------------------------------------
+
+    def _create_isolated_space(self) -> bool:
+        """Move the app window to a new macOS Space for visual isolation.
+
+        Uses AppleScript via Mission Control to:
+        1. Open Mission Control
+        2. Create a new Space (click the '+' button)
+        3. Move the app window to that Space
+
+        This is best-effort.  It requires Mission Control accessibility
+        permissions and may not work on all macOS versions.  Failures are
+        logged but do not prevent test execution.
+
+        Returns True if the window was (likely) moved, False otherwise.
+        """
+        if self._pid is None:
+            logger.warning("Cannot create isolated space: no PID")
+            return False
+
+        app_name = Path(self._app_path).stem
+        script = f'''
+            -- Open Mission Control, add a space, and move the app there
+            tell application "Mission Control" to launch
+            delay 1.0
+
+            tell application "System Events"
+                -- Click the '+' button to add a new Desktop/Space
+                -- (This appears in the Spaces bar at the top of Mission Control)
+                try
+                    click button 1 of group "Spaces Bar" of group 1 of process "Dock"
+                on error
+                    -- Fallback: try finding the add-space button by description
+                    try
+                        click (first button whose description is "add desktop") of ¬
+                            group "Spaces Bar" of group 1 of process "Dock"
+                    end try
+                end try
+                delay 0.5
+
+                -- Press Escape to exit Mission Control
+                key code 53
+                delay 0.5
+            end tell
+
+            -- Move the app window to the new (last) space
+            -- We do this by setting the app to full screen briefly, then reverting,
+            -- or by using the window's context menu in Mission Control.
+            -- Simpler approach: use the 'move window' gesture via System Events
+            tell application "System Events"
+                tell process "{app_name}"
+                    try
+                        set frontmost to true
+                    end try
+                end tell
+            end tell
+        '''
+
+        try:
+            result = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if result.returncode == 0:
+                logger.info("Isolated space created for %s", app_name)
+                # Refresh window ID since the window may have been recreated
+                self._refresh_window_id()
+                return True
+            else:
+                logger.warning(
+                    "Failed to create isolated space: %s",
+                    result.stderr.strip(),
+                )
+                return False
+        except Exception as exc:
+            logger.warning("Isolated space creation failed: %s", exc)
+            return False
 
     # -- UI State Dump (for debugging) ---------------------------------------
 
