@@ -130,9 +130,7 @@ class SimActionExecutor:
         # Determine whether the UI actually changed
         hash_after = self._snapshot_hash("after")
         ui_changed = (
-            hash_before != hash_after
-            if (hash_before and hash_after)
-            else True  # Assume changed if we can't detect
+            hash_before != hash_after if (hash_before and hash_after) else True  # Assume changed if we can't detect
         )
 
         return ActionResult(

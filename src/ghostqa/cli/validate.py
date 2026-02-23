@@ -60,22 +60,26 @@ def _validate_product(path: Path) -> list[dict[str, Any]]:
     frontend_url = services.get("frontend", {}).get("url", "") if isinstance(services, dict) else ""
     base_url = product.get("base_url", "")
     if not frontend_url and not base_url:
-        issues.append({
-            "severity": "warning",
-            "field": "product.services.frontend.url",
-            "message": "No base URL found. Set services.frontend.url or product.base_url",
-        })
+        issues.append(
+            {
+                "severity": "warning",
+                "field": "product.services.frontend.url",
+                "message": "No base URL found. Set services.frontend.url or product.base_url",
+            }
+        )
 
     # Check cost limits are positive numbers
     cost_limits = product.get("cost_limits", {})
     if isinstance(cost_limits, dict):
         per_run = cost_limits.get("per_run_usd")
         if per_run is not None and (not isinstance(per_run, (int, float)) or per_run <= 0):
-            issues.append({
-                "severity": "error",
-                "field": "product.cost_limits.per_run_usd",
-                "message": f"per_run_usd must be a positive number, got: {per_run!r}",
-            })
+            issues.append(
+                {
+                    "severity": "error",
+                    "field": "product.cost_limits.per_run_usd",
+                    "message": f"per_run_usd must be a positive number, got: {per_run!r}",
+                }
+            )
 
     # Viewports check
     viewports = product.get("viewports", {})
@@ -86,17 +90,21 @@ def _validate_product(path: Path) -> list[dict[str, Any]]:
             for dim in ("width", "height"):
                 val = vp_cfg.get(dim)
                 if val is None:
-                    issues.append({
-                        "severity": "warning",
-                        "field": f"product.viewports.{vp_name}.{dim}",
-                        "message": f"Viewport '{vp_name}' missing '{dim}'",
-                    })
+                    issues.append(
+                        {
+                            "severity": "warning",
+                            "field": f"product.viewports.{vp_name}.{dim}",
+                            "message": f"Viewport '{vp_name}' missing '{dim}'",
+                        }
+                    )
                 elif not isinstance(val, int) or val <= 0:
-                    issues.append({
-                        "severity": "error",
-                        "field": f"product.viewports.{vp_name}.{dim}",
-                        "message": f"Viewport '{vp_name}'.{dim} must be a positive integer, got: {val!r}",
-                    })
+                    issues.append(
+                        {
+                            "severity": "error",
+                            "field": f"product.viewports.{vp_name}.{dim}",
+                            "message": f"Viewport '{vp_name}'.{dim} must be a positive integer, got: {val!r}",
+                        }
+                    )
 
     return issues
 
@@ -127,20 +135,24 @@ def _validate_persona(path: Path) -> list[dict[str, Any]]:
         issues.append({"severity": "error", "field": "persona.name", "message": "Missing required field: persona.name"})
 
     if not persona.get("goals"):
-        issues.append({
-            "severity": "warning",
-            "field": "persona.goals",
-            "message": "persona.goals is empty — persona will have no behavioral guidance",
-        })
+        issues.append(
+            {
+                "severity": "warning",
+                "field": "persona.goals",
+                "message": "persona.goals is empty — persona will have no behavioral guidance",
+            }
+        )
 
     # credentials is optional but often referenced in journeys
     credentials = persona.get("credentials", {})
     if credentials and not isinstance(credentials, dict):
-        issues.append({
-            "severity": "error",
-            "field": "persona.credentials",
-            "message": "persona.credentials must be a mapping (key: value pairs)",
-        })
+        issues.append(
+            {
+                "severity": "error",
+                "field": "persona.credentials",
+                "message": "persona.credentials must be a mapping (key: value pairs)",
+            }
+        )
 
     return issues
 
@@ -170,50 +182,65 @@ def _validate_journey(path: Path, personas_dir: Path | None = None) -> list[dict
     # Required fields — accept both `id` and `scenario.id`
     scenario_id = scenario.get("id") or scenario.get("scenario_id") or (data != scenario and data.get("id"))
     if not scenario_id:
-        issues.append({
-            "severity": "error", "field": "id",
-            "message": "Missing required field: id (scenario identifier)",
-        })
+        issues.append(
+            {
+                "severity": "error",
+                "field": "id",
+                "message": "Missing required field: id (scenario identifier)",
+            }
+        )
 
     # name / display_name are optional but nice to have
     has_name = scenario.get("name") or scenario.get("display_name") or (data != scenario and data.get("display_name"))
     if not has_name:
-        issues.append({
-            "severity": "warning", "field": "name",
-            "message": "name/display_name is missing — consider adding a human-readable name",
-        })
+        issues.append(
+            {
+                "severity": "warning",
+                "field": "name",
+                "message": "name/display_name is missing — consider adding a human-readable name",
+            }
+        )
 
     # Steps — accept both 'steps' key
     steps = scenario.get("steps", [])
     if not steps:
-        issues.append({
-            "severity": "error", "field": "steps",
-            "message": "Journey has no steps — at least one step is required",
-        })
+        issues.append(
+            {
+                "severity": "error",
+                "field": "steps",
+                "message": "Journey has no steps — at least one step is required",
+            }
+        )
     else:
         seen_step_ids: set[str] = set()
         for i, step in enumerate(steps):
             if not isinstance(step, dict):
-                issues.append({
-                    "severity": "error",
-                    "field": f"steps[{i}]",
-                    "message": f"Step {i} is not a mapping",
-                })
+                issues.append(
+                    {
+                        "severity": "error",
+                        "field": f"steps[{i}]",
+                        "message": f"Step {i} is not a mapping",
+                    }
+                )
                 continue
 
             step_id = step.get("id", "")
             if not step_id:
-                issues.append({
-                    "severity": "error",
-                    "field": f"steps[{i}].id",
-                    "message": f"Step {i} is missing required field: id",
-                })
+                issues.append(
+                    {
+                        "severity": "error",
+                        "field": f"steps[{i}].id",
+                        "message": f"Step {i} is missing required field: id",
+                    }
+                )
             elif step_id in seen_step_ids:
-                issues.append({
-                    "severity": "error",
-                    "field": f"steps[{i}].id",
-                    "message": f"Duplicate step id: '{step_id}'",
-                })
+                issues.append(
+                    {
+                        "severity": "error",
+                        "field": f"steps[{i}].id",
+                        "message": f"Duplicate step id: '{step_id}'",
+                    }
+                )
             else:
                 seen_step_ids.add(step_id)
 
@@ -221,65 +248,80 @@ def _validate_journey(path: Path, personas_dir: Path | None = None) -> list[dict
             mode = step.get("mode") or step.get("type") or ""
             valid_modes = {"api", "browser", "native_app", "ios_simulator"}
             if mode and mode not in valid_modes:
-                issues.append({
-                    "severity": "error",
-                    "field": f"steps[{i}].mode",
-                    "message": f"Unknown step mode: '{mode}'. Valid modes: {', '.join(sorted(valid_modes))}",
-                })
+                issues.append(
+                    {
+                        "severity": "error",
+                        "field": f"steps[{i}].mode",
+                        "message": f"Unknown step mode: '{mode}'. Valid modes: {', '.join(sorted(valid_modes))}",
+                    }
+                )
 
             if not step.get("goal") and not step.get("description"):
-                issues.append({
-                    "severity": "warning",
-                    "field": f"steps[{i}].goal",
-                    "message": f"Step '{step_id or i}' has no goal or description — AI will have no guidance",
-                })
+                issues.append(
+                    {
+                        "severity": "warning",
+                        "field": f"steps[{i}].goal",
+                        "message": f"Step '{step_id or i}' has no goal or description — AI will have no guidance",
+                    }
+                )
 
     # Personas — accept both `personas: [{ref: ...}]` and flat `persona: name` string
     persona_refs = scenario.get("personas", [])
     flat_persona = scenario.get("persona")  # Flat string format used by some schemas
     if not persona_refs and not flat_persona:
-        issues.append({
-            "severity": "error", "field": "personas",
-            "message": "Journey must reference at least one persona",
-        })
+        issues.append(
+            {
+                "severity": "error",
+                "field": "personas",
+                "message": "Journey must reference at least one persona",
+            }
+        )
     elif flat_persona and isinstance(flat_persona, str):
         # Flat string format: `persona: alex_developer`
         if personas_dir is not None:
             persona_path = personas_dir / f"{flat_persona}.yaml"
             if not persona_path.is_file():
-                issues.append({
-                    "severity": "error",
-                    "field": "persona",
-                    "message": f"Referenced persona '{flat_persona}' not found at {persona_path}",
-                })
+                issues.append(
+                    {
+                        "severity": "error",
+                        "field": "persona",
+                        "message": f"Referenced persona '{flat_persona}' not found at {persona_path}",
+                    }
+                )
     elif persona_refs:
         for pref in persona_refs:
             if isinstance(pref, dict):
                 ref_name = pref.get("ref", "")
                 if not ref_name:
-                    issues.append({
-                        "severity": "error",
-                        "field": "personas[].ref",
-                        "message": "Persona reference missing 'ref' field",
-                    })
+                    issues.append(
+                        {
+                            "severity": "error",
+                            "field": "personas[].ref",
+                            "message": "Persona reference missing 'ref' field",
+                        }
+                    )
                 elif personas_dir is not None:
                     # Check that the referenced persona file exists
                     persona_path = personas_dir / f"{ref_name}.yaml"
                     if not persona_path.is_file():
-                        issues.append({
-                            "severity": "error",
-                            "field": "personas[].ref",
-                            "message": f"Referenced persona '{ref_name}' not found at {persona_path}",
-                        })
+                        issues.append(
+                            {
+                                "severity": "error",
+                                "field": "personas[].ref",
+                                "message": f"Referenced persona '{ref_name}' not found at {persona_path}",
+                            }
+                        )
 
     # Tags should be a list
     tags = scenario.get("tags")
     if tags is not None and not isinstance(tags, list):
-        issues.append({
-            "severity": "warning",
-            "field": "tags",
-            "message": f"tags should be a list, got: {type(tags).__name__}",
-        })
+        issues.append(
+            {
+                "severity": "warning",
+                "field": "tags",
+                "message": f"tags should be a list, got: {type(tags).__name__}",
+            }
+        )
 
     return issues
 

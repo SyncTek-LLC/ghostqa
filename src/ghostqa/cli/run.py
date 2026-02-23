@@ -438,7 +438,8 @@ def run(
     valid_levels = {"smoke", "standard", "thorough"}
     if level not in valid_levels:
         _print_error(
-            console, plain,
+            console,
+            plain,
             f"Invalid level: {level}\n\nValid levels: {', '.join(sorted(valid_levels))}",
             "Config Error",
         )
@@ -635,9 +636,7 @@ def run(
     # 2. Check if any finding meets the severity threshold
     if not all_passed:
         findings = run_result_data.get("findings", []) if run_result_data else []
-        qualifying_findings = [
-            f for f in findings if _finding_meets_threshold(f.get("severity", ""), fail_on_severity)
-        ]
+        qualifying_findings = [f for f in findings if _finding_meets_threshold(f.get("severity", ""), fail_on_severity)]
         if qualifying_findings or fail_on_severity == "any":
             raise typer.Exit(code=1)
         # No qualifying findings — exit 0 despite test failures

@@ -476,9 +476,7 @@ class GhostQAOrchestrator:
                             app_path = product_config.get("app_path", "")
                             bundle_id = product_config.get("bundle_id")
                             if not app_path:
-                                raise RuntimeError(
-                                    "native_app step requires 'app_path' in product config"
-                                )
+                                raise RuntimeError("native_app step requires 'app_path' in product config")
                             native_app_runner = NativeAppRunner(
                                 app_path=app_path,
                                 evidence_dir=evidence_dir,
@@ -488,9 +486,7 @@ class GhostQAOrchestrator:
                             native_app_runner.start()
 
                         native_result = native_app_runner.execute_step(step, captured_vars)
-                        step_reports.append(
-                            native_app_runner.to_step_report(native_result, description)
-                        )
+                        step_reports.append(native_app_runner.to_step_report(native_result, description))
                         findings.extend(native_result.findings)
 
                     elif mode == "ios_simulator":
@@ -503,9 +499,7 @@ class GhostQAOrchestrator:
                             sim_device = product_config.get("simulator_device")
                             sim_os = product_config.get("simulator_os")
                             if not bundle_id:
-                                raise RuntimeError(
-                                    "ios_simulator step requires 'bundle_id' in product config"
-                                )
+                                raise RuntimeError("ios_simulator step requires 'bundle_id' in product config")
                             simulator_runner = SimulatorRunner(
                                 bundle_id=bundle_id,
                                 evidence_dir=evidence_dir,
@@ -518,9 +512,7 @@ class GhostQAOrchestrator:
                             simulator_runner.start()
 
                         sim_result = simulator_runner.execute_step(step, captured_vars)
-                        step_reports.append(
-                            simulator_runner.to_step_report(sim_result, description)
-                        )
+                        step_reports.append(simulator_runner.to_step_report(sim_result, description))
                         findings.extend(sim_result.findings)
 
                     else:
@@ -877,9 +869,7 @@ class GhostQAOrchestrator:
         """
         # Reject shell metacharacters before any splitting
         if GhostQAOrchestrator._SHELL_METACHAR_RE.search(command):
-            logger.warning(
-                "check_command rejected — contains shell metacharacter: %r", command
-            )
+            logger.warning("check_command rejected — contains shell metacharacter: %r", command)
             return False
 
         try:
@@ -895,8 +885,7 @@ class GhostQAOrchestrator:
         executable = Path(parts[0]).name
         if executable not in GhostQAOrchestrator._ALLOWED_CHECK_COMMANDS:
             logger.warning(
-                "check_command rejected — executable %r not in allowlist. "
-                "Allowed: %s",
+                "check_command rejected — executable %r not in allowlist. Allowed: %s",
                 executable,
                 ", ".join(sorted(GhostQAOrchestrator._ALLOWED_CHECK_COMMANDS)),
             )

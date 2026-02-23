@@ -28,6 +28,7 @@ logger = logging.getLogger("ghostqa.engine.simulator_runner")
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclasses.dataclass
 class SimulatorStepResult:
     """Result of executing a single iOS simulator step."""
@@ -47,6 +48,7 @@ class SimulatorStepResult:
 # ---------------------------------------------------------------------------
 # SimulatorRunner
 # ---------------------------------------------------------------------------
+
 
 class SimulatorRunner:
     """Executes iOS Simulator steps from scenario definitions.
@@ -312,15 +314,17 @@ class SimulatorRunner:
 
             action_duration = time.monotonic() - action_start
 
-            actions_taken.append({
-                "index": action_idx,
-                "action": action_type,
-                "target": target,
-                "value": value,
-                "success": success,
-                "error": action_error,
-                "duration_ms": round(action_duration * 1000, 1),
-            })
+            actions_taken.append(
+                {
+                    "index": action_idx,
+                    "action": action_type,
+                    "target": target,
+                    "value": value,
+                    "success": success,
+                    "error": action_error,
+                    "duration_ms": round(action_duration * 1000, 1),
+                }
+            )
 
             if action_error:
                 findings.append(
@@ -617,10 +621,12 @@ class SimulatorRunner:
                 if i == 0:
                     lines.append(f"    click at {{{cx}, {cy}}}")
                 # AppleScript drag is limited; we rely on click approximation
-            lines.extend([
-                "  end tell",
-                "end tell",
-            ])
+            lines.extend(
+                [
+                    "  end tell",
+                    "end tell",
+                ]
+            )
 
             subprocess.run(
                 ["osascript", "-e", "\n".join(lines)],
@@ -645,7 +651,7 @@ class SimulatorRunner:
                 "  activate\n"
                 "end tell\n"
                 'tell application "System Events"\n'
-                '  key code 4 using {command down, shift down}\n'
+                "  key code 4 using {command down, shift down}\n"
                 "end tell"
             )
             subprocess.run(
@@ -775,10 +781,12 @@ class SimulatorRunner:
         for runtime, device_list in devices_by_runtime.items():
             for device in device_list:
                 if device.get("isAvailable", False):
-                    flat.append({
-                        "udid": device.get("udid", ""),
-                        "name": device.get("name", ""),
-                        "state": device.get("state", ""),
-                        "runtime": runtime,
-                    })
+                    flat.append(
+                        {
+                            "udid": device.get("udid", ""),
+                            "name": device.get("name", ""),
+                            "state": device.get("state", ""),
+                            "runtime": runtime,
+                        }
+                    )
         return flat

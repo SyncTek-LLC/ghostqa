@@ -25,6 +25,7 @@ from typing import Any
 
 logger = logging.getLogger("ghostqa.mcp")
 
+
 # SECURITY (FIND-002): Optional allowlist of base directories the MCP server
 # is permitted to access.  Controlled via the GHOSTQA_ALLOWED_DIRS environment
 # variable — a colon-separated list of absolute paths.
@@ -276,11 +277,13 @@ def create_server() -> Any:
         # Validate level
         valid_levels = {"smoke", "standard", "thorough"}
         if level not in valid_levels:
-            return json.dumps({
-                "error": f"Invalid level: {level}. Valid levels: {', '.join(sorted(valid_levels))}",
-                "tool_error": True,
-                "error_code": "CONFIG_ERROR",
-            })
+            return json.dumps(
+                {
+                    "error": f"Invalid level: {level}. Valid levels: {', '.join(sorted(valid_levels))}",
+                    "tool_error": True,
+                    "error_code": "CONFIG_ERROR",
+                }
+            )
 
         # SECURITY (FIND-002): Validate directory is within allowed bases
         _, dir_err = _validate_directory(directory)
@@ -307,11 +310,13 @@ def create_server() -> Any:
                 level=level,
             )
         except Exception as exc:
-            return json.dumps({
-                "error": f"Configuration error: {exc}",
-                "tool_error": True,
-                "error_code": "CONFIG_ERROR",
-            })
+            return json.dumps(
+                {
+                    "error": f"Configuration error: {exc}",
+                    "tool_error": True,
+                    "error_code": "CONFIG_ERROR",
+                }
+            )
 
         # Run the orchestrator (synchronous -- runs in thread)
         try:
@@ -325,24 +330,28 @@ def create_server() -> Any:
             )
         except Exception as exc:
             logger.exception("Run failed")
-            return json.dumps({
-                "error": f"Run failed: {exc}",
-                "tool_error": True,
-                "error_code": "INTERNAL_ERROR",
-            })
+            return json.dumps(
+                {
+                    "error": f"Run failed: {exc}",
+                    "tool_error": True,
+                    "error_code": "INTERNAL_ERROR",
+                }
+            )
 
         # Load structured result from evidence directory
         evidence_dir = config.evidence_dir
         run_ids = _list_all_run_ids(evidence_dir)
         if not run_ids:
-            return json.dumps({
-                "passed": all_passed,
-                "run_id": "unknown",
-                "summary": {"total_steps": 0, "passed": 0, "failed": 0, "findings_count": 0},
-                "findings": [],
-                "cost_usd": 0.0,
-                "evidence_dir": str(evidence_dir),
-            })
+            return json.dumps(
+                {
+                    "passed": all_passed,
+                    "run_id": "unknown",
+                    "summary": {"total_steps": 0, "passed": 0, "failed": 0, "findings_count": 0},
+                    "findings": [],
+                    "cost_usd": 0.0,
+                    "evidence_dir": str(evidence_dir),
+                }
+            )
 
         run_id = run_ids[0]  # Most recent
         result_data = _load_run_result(evidence_dir, run_id)
@@ -351,36 +360,41 @@ def create_server() -> Any:
             step_reports = result_data.get("step_reports", [])
             findings = result_data.get("findings", [])
             passed_count = sum(1 for s in step_reports if s.get("passed"))
-            return json.dumps({
-                "passed": result_data.get("passed", all_passed),
-                "run_id": result_data.get("run_id", run_id),
-                "summary": {
-                    "total_steps": len(step_reports),
-                    "passed": passed_count,
-                    "failed": len(step_reports) - passed_count,
-                    "findings_count": len(findings),
+            return json.dumps(
+                {
+                    "passed": result_data.get("passed", all_passed),
+                    "run_id": result_data.get("run_id", run_id),
+                    "summary": {
+                        "total_steps": len(step_reports),
+                        "passed": passed_count,
+                        "failed": len(step_reports) - passed_count,
+                        "findings_count": len(findings),
+                    },
+                    "findings": [
+                        {
+                            "severity": f.get("severity", "unknown"),
+                            "category": f.get("category", "unknown"),
+                            "description": f.get("description", ""),
+                            "step_id": f.get("step_id", ""),
+                        }
+                        for f in findings
+                    ],
+                    "cost_usd": result_data.get("cost_usd", 0.0),
+                    "evidence_dir": str(evidence_dir / run_id),
                 },
-                "findings": [
-                    {
-                        "severity": f.get("severity", "unknown"),
-                        "category": f.get("category", "unknown"),
-                        "description": f.get("description", ""),
-                        "step_id": f.get("step_id", ""),
-                    }
-                    for f in findings
-                ],
-                "cost_usd": result_data.get("cost_usd", 0.0),
-                "evidence_dir": str(evidence_dir / run_id),
-            }, default=_json_serialize)
+                default=_json_serialize,
+            )
         else:
-            return json.dumps({
-                "passed": all_passed,
-                "run_id": run_id,
-                "summary": {"total_steps": 0, "passed": 0, "failed": 0, "findings_count": 0},
-                "findings": [],
-                "cost_usd": 0.0,
-                "evidence_dir": str(evidence_dir / run_id),
-            })
+            return json.dumps(
+                {
+                    "passed": all_passed,
+                    "run_id": run_id,
+                    "summary": {"total_steps": 0, "passed": 0, "failed": 0, "findings_count": 0},
+                    "findings": [],
+                    "cost_usd": 0.0,
+                    "evidence_dir": str(evidence_dir / run_id),
+                }
+            )
 
     # ── Tool: ghostqa_list_products ──────────────────────────────────────
 
@@ -416,20 +430,24 @@ def create_server() -> Any:
 
         products_dir = project_dir / "products"
         if not products_dir.is_dir():
-            return json.dumps({
-                "error": f"Products directory not found: {products_dir}",
-                "tool_error": True,
-                "error_code": "PROJECT_NOT_INITIALIZED",
-            })
+            return json.dumps(
+                {
+                    "error": f"Products directory not found: {products_dir}",
+                    "tool_error": True,
+                    "error_code": "PROJECT_NOT_INITIALIZED",
+                }
+            )
 
         try:
             import yaml  # type: ignore
         except ImportError:
-            return json.dumps({
-                "error": "PyYAML not installed. Install it: pip install pyyaml",
-                "tool_error": True,
-                "error_code": "CONFIG_ERROR",
-            })
+            return json.dumps(
+                {
+                    "error": "PyYAML not installed. Install it: pip install pyyaml",
+                    "tool_error": True,
+                    "error_code": "CONFIG_ERROR",
+                }
+            )
 
         results: list[dict[str, Any]] = []
 
@@ -456,12 +474,14 @@ def create_server() -> Any:
             # Find journeys for this product
             journeys = _find_journeys_for_product(project_dir, product_name)
 
-            results.append({
-                "name": product_name,
-                "base_url": base_url,
-                "app_type": app_type,
-                "journeys": journeys,
-            })
+            results.append(
+                {
+                    "name": product_name,
+                    "base_url": base_url,
+                    "app_type": app_type,
+                    "journeys": journeys,
+                }
+            )
 
         # Also check for directory-style products (product/_product.yaml)
         for subdir in sorted(products_dir.iterdir()):
@@ -495,12 +515,14 @@ def create_server() -> Any:
             app_type = product.get("app_type", "web")
             journeys = _find_journeys_for_product(project_dir, product_name)
 
-            results.append({
-                "name": product_name,
-                "base_url": base_url,
-                "app_type": app_type,
-                "journeys": journeys,
-            })
+            results.append(
+                {
+                    "name": product_name,
+                    "base_url": base_url,
+                    "app_type": app_type,
+                    "journeys": journeys,
+                }
+            )
 
         return json.dumps(results, indent=2)
 
@@ -540,11 +562,13 @@ def create_server() -> Any:
 
         evidence_dir = project_dir / "evidence"
         if not evidence_dir.is_dir():
-            return json.dumps({
-                "error": f"Evidence directory not found: {evidence_dir}",
-                "tool_error": True,
-                "error_code": "PROJECT_NOT_INITIALIZED",
-            })
+            return json.dumps(
+                {
+                    "error": f"Evidence directory not found: {evidence_dir}",
+                    "tool_error": True,
+                    "error_code": "PROJECT_NOT_INITIALIZED",
+                }
+            )
 
         # Try to load the specific run
         result_data = _load_run_result(evidence_dir, run_id)
@@ -554,20 +578,24 @@ def create_server() -> Any:
         # If not found, list available runs to help the user
         available = _list_all_run_ids(evidence_dir)
         if available:
-            return json.dumps({
-                "error": f"Run ID not found: {run_id}",
-                "tool_error": True,
-                "error_code": "RUN_NOT_FOUND",
-                "available_run_ids": available[:20],  # Show up to 20 most recent
-            })
+            return json.dumps(
+                {
+                    "error": f"Run ID not found: {run_id}",
+                    "tool_error": True,
+                    "error_code": "RUN_NOT_FOUND",
+                    "available_run_ids": available[:20],  # Show up to 20 most recent
+                }
+            )
         else:
-            return json.dumps({
-                "error": f"Run ID not found: {run_id}",
-                "tool_error": True,
-                "error_code": "RUN_NOT_FOUND",
-                "available_run_ids": [],
-                "hint": "No runs have been recorded yet. Use ghostqa_run to execute tests first.",
-            })
+            return json.dumps(
+                {
+                    "error": f"Run ID not found: {run_id}",
+                    "tool_error": True,
+                    "error_code": "RUN_NOT_FOUND",
+                    "available_run_ids": [],
+                    "hint": "No runs have been recorded yet. Use ghostqa_run to execute tests first.",
+                }
+            )
 
     # ── Tool: ghostqa_init ───────────────────────────────────────────────
 
@@ -602,11 +630,13 @@ def create_server() -> Any:
         project_dir = target / ".ghostqa"
 
         if project_dir.exists():
-            return json.dumps({
-                "success": False,
-                "error": f"GhostQA project already initialized at {project_dir}",
-                "hint": "The .ghostqa/ directory already exists. Delete it first to re-initialize.",
-            })
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": f"GhostQA project already initialized at {project_dir}",
+                    "hint": "The .ghostqa/ directory already exists. Delete it first to re-initialize.",
+                }
+            )
 
         # Create directory structure
         subdirs = ["products", "personas", "journeys", "evidence"]
@@ -634,9 +664,7 @@ def create_server() -> Any:
             product_content = _SAMPLE_PRODUCT
             if url:
                 # Patch the sample product with the provided URL
-                product_content = product_content.replace(
-                    "http://localhost:3000", url
-                )
+                product_content = product_content.replace("http://localhost:3000", url)
             product_path = project_dir / "products" / "demo.yaml"
             product_path.write_text(product_content, encoding="utf-8")
             created_files.append(".ghostqa/products/demo.yaml")
@@ -672,29 +700,32 @@ def create_server() -> Any:
             created_files.append(".gitignore (updated with .ghostqa/personas/)")
 
         except Exception as exc:
-            return json.dumps({
-                "success": False,
-                "error": f"Failed to create project: {exc}",
-            })
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": f"Failed to create project: {exc}",
+                }
+            )
 
         import os
 
         api_key_configured = bool(os.environ.get("ANTHROPIC_API_KEY"))
 
-        return json.dumps({
-            "success": True,
-            "project_dir": str(project_dir),
-            "files_created": created_files,
-            "api_key_configured": api_key_configured,
-            "next_steps": [
-                "Edit .ghostqa/products/demo.yaml with your app's URL"
-                + (f" (set to {url})" if url else ""),
-                "Customize personas and journeys for your app",
-                "Install Playwright: playwright install chromium",
-                *([] if api_key_configured else ["Set ANTHROPIC_API_KEY: export ANTHROPIC_API_KEY=sk-ant-..."]),
-                "Run tests: use the ghostqa_run tool with product='demo'",
-            ],
-        })
+        return json.dumps(
+            {
+                "success": True,
+                "project_dir": str(project_dir),
+                "files_created": created_files,
+                "api_key_configured": api_key_configured,
+                "next_steps": [
+                    "Edit .ghostqa/products/demo.yaml with your app's URL" + (f" (set to {url})" if url else ""),
+                    "Customize personas and journeys for your app",
+                    "Install Playwright: playwright install chromium",
+                    *([] if api_key_configured else ["Set ANTHROPIC_API_KEY: export ANTHROPIC_API_KEY=sk-ant-..."]),
+                    "Run tests: use the ghostqa_run tool with product='demo'",
+                ],
+            }
+        )
 
     # ── Tool: ghostqa_budget_check ───────────────────────────────────────
 
@@ -726,11 +757,13 @@ def create_server() -> Any:
         project_dir = _resolve_project_dir(directory)
         init_err = _check_project_initialized(project_dir)
         if init_err:
-            return json.dumps({
-                "error": init_err,
-                "tool_error": True,
-                "error_code": "PROJECT_NOT_INITIALIZED",
-            })
+            return json.dumps(
+                {
+                    "error": init_err,
+                    "tool_error": True,
+                    "error_code": "PROJECT_NOT_INITIALIZED",
+                }
+            )
 
         try:
             from ghostqa.engine.cost_tracker import CostTracker
@@ -743,11 +776,13 @@ def create_server() -> Any:
                 per_month_usd=per_month_usd,
             )
         except Exception as exc:
-            return json.dumps({
-                "error": f"Budget check failed: {exc}",
-                "tool_error": True,
-                "error_code": "INTERNAL_ERROR",
-            })
+            return json.dumps(
+                {
+                    "error": f"Budget check failed: {exc}",
+                    "tool_error": True,
+                    "error_code": "INTERNAL_ERROR",
+                }
+            )
 
         daily_ok = budget_status["daily_ok"]
         monthly_ok = budget_status["monthly_ok"]
@@ -765,16 +800,18 @@ def create_server() -> Any:
                 f"${budget_status['monthly_spent']:.4f} spent of ${per_month_usd:.2f} monthly limit"
             )
 
-        return json.dumps({
-            "can_run": can_run,
-            "daily_ok": daily_ok,
-            "monthly_ok": monthly_ok,
-            "daily_spent_usd": budget_status["daily_spent"],
-            "daily_limit_usd": per_day_usd,
-            "monthly_spent_usd": budget_status["monthly_spent"],
-            "monthly_limit_usd": per_month_usd,
-            "reason": reason,
-        })
+        return json.dumps(
+            {
+                "can_run": can_run,
+                "daily_ok": daily_ok,
+                "monthly_ok": monthly_ok,
+                "daily_spent_usd": budget_status["daily_spent"],
+                "daily_limit_usd": per_day_usd,
+                "monthly_spent_usd": budget_status["monthly_spent"],
+                "monthly_limit_usd": per_month_usd,
+                "reason": reason,
+            }
+        )
 
     return mcp
 
@@ -803,11 +840,13 @@ def _find_journeys_for_product(project_dir: Path, product_name: str) -> list[dic
                 sid = scenario.get("id", f.stem)
                 if sid not in seen_ids:
                     seen_ids.add(sid)
-                    journeys.append({
-                        "id": sid,
-                        "name": scenario.get("name", sid),
-                        "tags": scenario.get("tags", []),
-                    })
+                    journeys.append(
+                        {
+                            "id": sid,
+                            "name": scenario.get("name", sid),
+                            "tags": scenario.get("tags", []),
+                        }
+                    )
             except Exception:
                 continue
 
@@ -822,11 +861,13 @@ def _find_journeys_for_product(project_dir: Path, product_name: str) -> list[dic
                 sid = scenario.get("id", f.stem)
                 if sid not in seen_ids:
                     seen_ids.add(sid)
-                    journeys.append({
-                        "id": sid,
-                        "name": scenario.get("name", sid),
-                        "tags": scenario.get("tags", []),
-                    })
+                    journeys.append(
+                        {
+                            "id": sid,
+                            "name": scenario.get("name", sid),
+                            "tags": scenario.get("tags", []),
+                        }
+                    )
             except Exception:
                 continue
 

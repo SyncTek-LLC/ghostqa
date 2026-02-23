@@ -384,8 +384,7 @@ class DashboardServer:
         # should only happen when the operator explicitly opts in via --host.
         if self.host not in ("127.0.0.1", "localhost", "::1"):
             logger.warning(
-                "WARNING: Dashboard server has no authentication. "
-                "Binding to %s:%d — only use on trusted networks.",
+                "WARNING: Dashboard server has no authentication. Binding to %s:%d — only use on trusted networks.",
                 self.host,
                 self.port,
             )

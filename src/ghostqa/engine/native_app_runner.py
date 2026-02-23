@@ -77,6 +77,7 @@ except ImportError:
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclasses.dataclass
 class NativeAppStepResult:
     """Result of executing a single native-app step."""
@@ -128,11 +129,31 @@ _KEY_CODES: dict[str, int] = {
     "right": 0x7C,
     "down": 0x7D,
     "up": 0x7E,
-    "a": 0x00, "b": 0x0B, "c": 0x08, "d": 0x02, "e": 0x0E,
-    "f": 0x03, "g": 0x05, "h": 0x04, "i": 0x22, "j": 0x26,
-    "k": 0x28, "l": 0x25, "m": 0x2E, "n": 0x2D, "o": 0x1F,
-    "p": 0x23, "q": 0x0C, "r": 0x0F, "s": 0x01, "t": 0x11,
-    "u": 0x20, "v": 0x09, "w": 0x0D, "x": 0x07, "y": 0x10,
+    "a": 0x00,
+    "b": 0x0B,
+    "c": 0x08,
+    "d": 0x02,
+    "e": 0x0E,
+    "f": 0x03,
+    "g": 0x05,
+    "h": 0x04,
+    "i": 0x22,
+    "j": 0x26,
+    "k": 0x28,
+    "l": 0x25,
+    "m": 0x2E,
+    "n": 0x2D,
+    "o": 0x1F,
+    "p": 0x23,
+    "q": 0x0C,
+    "r": 0x0F,
+    "s": 0x01,
+    "t": 0x11,
+    "u": 0x20,
+    "v": 0x09,
+    "w": 0x0D,
+    "x": 0x07,
+    "y": 0x10,
     "z": 0x06,
 }
 
@@ -140,6 +161,7 @@ _KEY_CODES: dict[str, int] = {
 # ---------------------------------------------------------------------------
 # NativeAppRunner
 # ---------------------------------------------------------------------------
+
 
 class NativeAppRunner:
     """Executes native macOS app steps from scenario definitions.
@@ -176,8 +198,7 @@ class NativeAppRunner:
         """
         if not _HAS_PYOBJC:
             raise RuntimeError(
-                "pyobjc is required for native macOS app testing. "
-                "Install it with: pip install 'ghostqa[native]'"
+                "pyobjc is required for native macOS app testing. Install it with: pip install 'ghostqa[native]'"
             )
 
         self._app_path = app_path
@@ -442,15 +463,17 @@ class NativeAppRunner:
 
             action_duration = time.monotonic() - action_start
 
-            actions_taken.append({
-                "index": action_idx,
-                "action": action_type,
-                "target": target,
-                "value": value,
-                "success": success,
-                "error": action_error,
-                "duration_ms": round(action_duration * 1000, 1),
-            })
+            actions_taken.append(
+                {
+                    "index": action_idx,
+                    "action": action_type,
+                    "target": target,
+                    "value": value,
+                    "success": success,
+                    "error": action_error,
+                    "duration_ms": round(action_duration * 1000, 1),
+                }
+            )
 
             if action_error:
                 findings.append(
@@ -668,8 +691,7 @@ class NativeAppRunner:
             if not _role_ok(el):
                 continue
             el_text = " ".join(
-                s for s in [el.title, el.description, el.identifier, el.placeholder, el.value or ""]
-                if s
+                s for s in [el.title, el.description, el.identifier, el.placeholder, el.value or ""] if s
             ).lower()
             if not el_text.strip():
                 continue
@@ -710,9 +732,17 @@ class NativeAppRunner:
 
         # Prefer interactive elements (buttons, text fields, etc.)
         interactive_roles = {
-            "AXButton", "AXTextField", "AXTextArea", "AXCheckBox",
-            "AXRadioButton", "AXPopUpButton", "AXComboBox",
-            "AXSlider", "AXLink", "AXMenuItem", "AXTab",
+            "AXButton",
+            "AXTextField",
+            "AXTextArea",
+            "AXCheckBox",
+            "AXRadioButton",
+            "AXPopUpButton",
+            "AXComboBox",
+            "AXSlider",
+            "AXLink",
+            "AXMenuItem",
+            "AXTab",
         }
 
         interactive = [el for el in containing if el.role in interactive_roles]
@@ -782,7 +812,10 @@ class NativeAppRunner:
             if element:
                 logger.info(
                     "Resolved coordinates (%d,%d) to element: role=%s title='%s'",
-                    x, y, element.role, element.title,
+                    x,
+                    y,
+                    element.role,
+                    element.title,
                 )
 
         if element is None:
@@ -846,6 +879,7 @@ class NativeAppRunner:
         app_name = Path(self._app_path).stem
         try:
             from AppKit import NSPasteboard, NSPasteboardTypeString  # type: ignore[import-untyped]
+
             pb = NSPasteboard.generalPasteboard()
             old_contents = pb.stringForType_(NSPasteboardTypeString)
 
@@ -864,10 +898,7 @@ class NativeAppRunner:
                     end tell
                 end tell
             '''
-            result = subprocess.run(
-                ["osascript", "-e", script],
-                capture_output=True, text=True, timeout=5
-            )
+            result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=5)
 
             if result.returncode == 0:
                 # Wait for app to process the paste event before touching clipboard
@@ -965,10 +996,7 @@ class NativeAppRunner:
                 end tell
             '''
         try:
-            result = subprocess.run(
-                ["osascript", "-e", script],
-                capture_output=True, text=True, timeout=5
-            )
+            result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 logger.debug(
                     "AppleScript key code %d%s sent to '%s'",
@@ -980,7 +1008,8 @@ class NativeAppRunner:
             else:
                 logger.warning(
                     "AppleScript key press failed for '%s': %s",
-                    key_name, result.stderr.strip(),
+                    key_name,
+                    result.stderr.strip(),
                 )
                 return False
         except Exception as exc:
@@ -998,12 +1027,8 @@ class NativeAppRunner:
         """
         try:
             point = CGPoint(x, y)
-            event_down = CGEventCreateMouseEvent(
-                None, kCGEventLeftMouseDown, point, kCGMouseButtonLeft
-            )
-            event_up = CGEventCreateMouseEvent(
-                None, kCGEventLeftMouseUp, point, kCGMouseButtonLeft
-            )
+            event_down = CGEventCreateMouseEvent(None, kCGEventLeftMouseDown, point, kCGMouseButtonLeft)
+            event_up = CGEventCreateMouseEvent(None, kCGEventLeftMouseUp, point, kCGMouseButtonLeft)
             CGEventSetIntegerValueField(event_down, kCGMouseEventClickState, 1)
             CGEventSetIntegerValueField(event_up, kCGMouseEventClickState, 1)
             CGEventPost(kCGHIDEventTap, event_down)
@@ -1088,9 +1113,7 @@ class NativeAppRunner:
                 kCGWindowListOptionOnScreenOnly,
             )
 
-            window_list = CGWindowListCopyWindowInfo(
-                kCGWindowListOptionOnScreenOnly, kCGNullWindowID
-            )
+            window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID)
 
             # Collect all on-screen windows for our PID, preferring the
             # frontmost (lowest kCGWindowLayer, then highest kCGWindowNumber
@@ -1113,9 +1136,7 @@ class NativeAppRunner:
                     "No on-screen windows for pid=%s, trying kCGWindowListOptionAll",
                     self._pid,
                 )
-                window_list = CGWindowListCopyWindowInfo(
-                    kCGWindowListOptionAll, kCGNullWindowID
-                )
+                window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID)
                 for win in window_list:
                     if win.get("kCGWindowOwnerPID") == self._pid:
                         wid = win.get("kCGWindowNumber")
@@ -1194,7 +1215,9 @@ class NativeAppRunner:
             try:
                 result = subprocess.run(
                     ["sips", "--getProperty", "pixelHeight", str(filepath)],
-                    capture_output=True, timeout=5, text=True,
+                    capture_output=True,
+                    timeout=5,
+                    text=True,
                 )
                 if result.returncode == 0:
                     for line in result.stdout.splitlines():
@@ -1202,8 +1225,7 @@ class NativeAppRunner:
                             height = int(line.split(":")[-1].strip())
                             if height < 200:  # 100 CSS points at @2x
                                 logger.warning(
-                                    "Window capture too small (%dpx tall) for WID %s "
-                                    "— falling back to full-screen",
+                                    "Window capture too small (%dpx tall) for WID %s — falling back to full-screen",
                                     height,
                                     self._window_id,
                                 )
@@ -1265,10 +1287,15 @@ class NativeAppRunner:
                 subprocess.run(
                     [
                         "sips",
-                        "-s", "format", "jpeg",
-                        "-s", "formatOptions", "80",
+                        "-s",
+                        "format",
+                        "jpeg",
+                        "-s",
+                        "formatOptions",
+                        "80",
                         str(filepath),
-                        "--out", str(jpg_path),
+                        "--out",
+                        str(jpg_path),
                     ],
                     capture_output=True,
                     timeout=15,
@@ -1364,9 +1391,7 @@ class NativeAppRunner:
             )
 
             # Try on-screen windows first
-            window_list = CGWindowListCopyWindowInfo(
-                kCGWindowListOptionOnScreenOnly, kCGNullWindowID
-            )
+            window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID)
             for win in window_list:
                 if win.get("kCGWindowOwnerPID") == self._pid:
                     wid = win.get("kCGWindowNumber")
@@ -1378,9 +1403,7 @@ class NativeAppRunner:
                 "No on-screen window for pid=%s, trying kCGWindowListOptionAll",
                 self._pid,
             )
-            window_list = CGWindowListCopyWindowInfo(
-                kCGWindowListOptionAll, kCGNullWindowID
-            )
+            window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID)
             for win in window_list:
                 if win.get("kCGWindowOwnerPID") == self._pid:
                     wid = win.get("kCGWindowNumber")

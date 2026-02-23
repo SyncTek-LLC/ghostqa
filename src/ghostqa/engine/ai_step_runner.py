@@ -53,6 +53,7 @@ _DEFAULT_MAX_VERIFICATION_FAILURES = 2
 # AIStepRunner
 # ---------------------------------------------------------------------------
 
+
 class AIStepRunner:
     """Generic AI-driven UI testing loop.
 
@@ -178,7 +179,10 @@ class AIStepRunner:
 
         logger.info(
             "AI step %s: goal=%s, max_actions=%d, max_duration=%ds",
-            step_id, goal[:80], max_actions, max_duration,
+            step_id,
+            goal[:80],
+            max_actions,
+            max_duration,
         )
 
         # Accumulators
@@ -204,10 +208,7 @@ class AIStepRunner:
             # -- Timeout check -----------------------------------------------
             elapsed = time.monotonic() - start_time
             if elapsed > max_duration:
-                error_msg = (
-                    f"Step timed out after {elapsed:.0f}s "
-                    f"(limit: {max_duration}s)"
-                )
+                error_msg = f"Step timed out after {elapsed:.0f}s (limit: {max_duration}s)"
                 logger.warning("AI step %s: %s", step_id, error_msg)
                 break
 
@@ -241,30 +242,32 @@ class AIStepRunner:
                     )
                     logger.warning(
                         "AI step %s: no UI change for %d actions, forcing API",
-                        step_id, consecutive_same_hash,
+                        step_id,
+                        consecutive_same_hash,
                     )
                     if self._on_escalation:
-                        self._on_escalation({
-                            "step_id": step_id,
-                            "action_idx": action_idx,
-                            "consecutive_same_hash": consecutive_same_hash,
-                            "level": "warn",
-                        })
+                        self._on_escalation(
+                            {
+                                "step_id": step_id,
+                                "action_idx": action_idx,
+                                "consecutive_same_hash": consecutive_same_hash,
+                                "level": "warn",
+                            }
+                        )
 
                 # Abort threshold: give up on this step
                 if consecutive_same_hash >= abort_threshold:
-                    error_msg = (
-                        f"App stuck: no UI change for "
-                        f"{consecutive_same_hash} consecutive actions"
-                    )
+                    error_msg = f"App stuck: no UI change for {consecutive_same_hash} consecutive actions"
                     logger.error("AI step %s: %s", step_id, error_msg)
                     if self._on_escalation:
-                        self._on_escalation({
-                            "step_id": step_id,
-                            "action_idx": action_idx,
-                            "consecutive_same_hash": consecutive_same_hash,
-                            "level": "abort",
-                        })
+                        self._on_escalation(
+                            {
+                                "step_id": step_id,
+                                "action_idx": action_idx,
+                                "consecutive_same_hash": consecutive_same_hash,
+                                "level": "abort",
+                            }
+                        )
                     break
 
             # -- Action repetition detection ---------------------------------
@@ -280,7 +283,8 @@ class AIStepRunner:
                     )
                     logger.warning(
                         "AI step %s: action repeated %dx, forcing API",
-                        step_id, repeat_threshold,
+                        step_id,
+                        repeat_threshold,
                     )
 
             # -- Optional UI context -----------------------------------------
@@ -290,7 +294,9 @@ class AIStepRunner:
                     ui_context = self._ui_context_fn()
                 except Exception as exc:
                     logger.warning(
-                        "AI step %s: ui_context_fn failed: %s", step_id, exc,
+                        "AI step %s: ui_context_fn failed: %s",
+                        step_id,
+                        exc,
                     )
 
             # -- Read screenshot as base64 for decider -----------------------
@@ -321,14 +327,19 @@ class AIStepRunner:
                 checkpoints_reached.append(decision.checkpoint)
                 logger.info(
                     "AI step %s: checkpoint reached: %s",
-                    step_id, decision.checkpoint,
+                    step_id,
+                    decision.checkpoint,
                 )
 
             # -- Goal achieved -----------------------------------------------
             if decision.goal_achieved or decision.action == "done":
-                actions_taken.append(self._action_record(
-                    action_idx, decision, success=True,
-                ))
+                actions_taken.append(
+                    self._action_record(
+                        action_idx,
+                        decision,
+                        success=True,
+                    )
+                )
                 # Take a final screenshot (reused for verification if needed)
                 final_ss = self._screenshot_fn(step_id, action_idx, "goal-achieved")
                 if final_ss:
@@ -343,9 +354,7 @@ class AIStepRunner:
                             "VERIFICATION: You just claimed the goal was achieved. "
                             "Look at the current screenshot and verify EACH of "
                             "these success criteria:\n"
-                            + "\n".join(
-                                f"- {c}" for c in success_criteria
-                            )
+                            + "\n".join(f"- {c}" for c in success_criteria)
                             + "\n\nFor each criterion, state whether it is "
                             "CONFIRMED or NOT CONFIRMED based on what you see. "
                             "Set goal_achieved to true ONLY if ALL criteria "
@@ -353,7 +362,8 @@ class AIStepRunner:
                         )
                         logger.info(
                             "AI step %s: verifying %d success criteria",
-                            step_id, len(success_criteria),
+                            step_id,
+                            len(success_criteria),
                         )
                         try:
                             v_decision: Decision = self._decider.decide(
@@ -365,8 +375,7 @@ class AIStepRunner:
                             )
                             if v_decision.goal_achieved:
                                 logger.info(
-                                    "AI step %s: verification PASSED — "
-                                    "all success criteria confirmed",
+                                    "AI step %s: verification PASSED — all success criteria confirmed",
                                     step_id,
                                 )
                                 goal_achieved = True
@@ -374,46 +383,38 @@ class AIStepRunner:
                             else:
                                 verification_failures += 1
                                 failure_reason = (
-                                    v_decision.reasoning
-                                    or v_decision.observation
-                                    or "Criteria not confirmed"
+                                    v_decision.reasoning or v_decision.observation or "Criteria not confirmed"
                                 )
                                 logger.info(
-                                    "AI step %s: verification FAILED "
-                                    "(%d/%d) — %s",
+                                    "AI step %s: verification FAILED (%d/%d) — %s",
                                     step_id,
                                     verification_failures,
                                     _DEFAULT_MAX_VERIFICATION_FAILURES,
                                     failure_reason,
                                 )
-                                findings.append({
-                                    "type": "verification_failure",
-                                    "step_id": step_id,
-                                    "action_idx": action_idx,
-                                    "reason": failure_reason,
-                                    "attempt": verification_failures,
-                                })
+                                findings.append(
+                                    {
+                                        "type": "verification_failure",
+                                        "step_id": step_id,
+                                        "action_idx": action_idx,
+                                        "reason": failure_reason,
+                                        "attempt": verification_failures,
+                                    }
+                                )
                                 if verification_failures >= _DEFAULT_MAX_VERIFICATION_FAILURES:
                                     logger.warning(
-                                        "AI step %s: max verification "
-                                        "failures (%d) reached — "
-                                        "treating as hard fail",
+                                        "AI step %s: max verification failures (%d) reached — treating as hard fail",
                                         step_id,
                                         _DEFAULT_MAX_VERIFICATION_FAILURES,
                                     )
-                                    error_msg = (
-                                        f"Verification failed "
-                                        f"{verification_failures} times: "
-                                        f"{failure_reason}"
-                                    )
+                                    error_msg = f"Verification failed {verification_failures} times: {failure_reason}"
                                     goal_achieved = False
                                     break
                                 # Inject verification failure context
                                 # into the goal so the agent knows what
                                 # wasn't confirmed on the next iteration
                                 goal = (
-                                    step.get("goal", "")
-                                    + f"\n\nPREVIOUS VERIFICATION FAILED: "
+                                    step.get("goal", "") + f"\n\nPREVIOUS VERIFICATION FAILED: "
                                     f"The AI claimed the goal was achieved "
                                     f"but verification found: "
                                     f"{failure_reason}. "
@@ -425,9 +426,9 @@ class AIStepRunner:
                                 continue  # Continue the loop
                         except Exception as exc:
                             logger.warning(
-                                "AI step %s: verification call failed: "
-                                "%s — trusting original claim",
-                                step_id, exc,
+                                "AI step %s: verification call failed: %s — trusting original claim",
+                                step_id,
+                                exc,
                             )
                             goal_achieved = True
                             break
@@ -439,14 +440,15 @@ class AIStepRunner:
             # -- Stuck decision from AI --------------------------------------
             if decision.action == "stuck":
                 consecutive_stuck_decisions += 1
-                actions_taken.append(self._action_record(
-                    action_idx, decision, success=True,
-                ))
-                if consecutive_stuck_decisions >= self._consecutive_stuck_limit:
-                    error_msg = (
-                        f"Agent reported stuck {consecutive_stuck_decisions} "
-                        f"consecutive times"
+                actions_taken.append(
+                    self._action_record(
+                        action_idx,
+                        decision,
+                        success=True,
                     )
+                )
+                if consecutive_stuck_decisions >= self._consecutive_stuck_limit:
+                    error_msg = f"Agent reported stuck {consecutive_stuck_decisions} consecutive times"
                     logger.error("AI step %s: %s", step_id, error_msg)
                     break
                 action_idx += 1
@@ -466,30 +468,37 @@ class AIStepRunner:
                     error=str(exc),
                 )
                 logger.error(
-                    "AI step %s: executor error: %s", step_id, exc,
+                    "AI step %s: executor error: %s",
+                    step_id,
+                    exc,
                     exc_info=True,
                 )
 
             action_duration_ms = result.duration_ms or round(
-                (time.monotonic() - action_start) * 1000, 1,
+                (time.monotonic() - action_start) * 1000,
+                1,
             )
 
-            actions_taken.append({
-                "index": action_idx,
-                "action": decision.action,
-                "target": decision.target,
-                "value": decision.value,
-                "reasoning": decision.reasoning,
-                "success": result.success,
-                "error": result.error,
-                "duration_ms": action_duration_ms,
-                "ui_changed": result.ui_changed,
-            })
+            actions_taken.append(
+                {
+                    "index": action_idx,
+                    "action": decision.action,
+                    "target": decision.target,
+                    "value": decision.value,
+                    "reasoning": decision.reasoning,
+                    "success": result.success,
+                    "error": result.error,
+                    "duration_ms": action_duration_ms,
+                    "ui_changed": result.ui_changed,
+                }
+            )
 
             if not result.success:
                 logger.warning(
                     "AI step %s action %d failed: %s",
-                    step_id, action_idx, result.error,
+                    step_id,
+                    action_idx,
+                    result.error,
                 )
 
             # -- Cost callback -----------------------------------------------
@@ -516,16 +525,17 @@ class AIStepRunner:
                 screenshots.append(final_ss)
 
         if not goal_achieved and error_msg is None:
-            error_msg = (
-                f"Max actions ({max_actions}) reached without achieving goal"
-            )
+            error_msg = f"Max actions ({max_actions}) reached without achieving goal"
 
         duration = round(time.monotonic() - start_time, 2)
         passed = goal_achieved and error_msg is None
 
         logger.info(
             "AI step %s complete: passed=%s, actions=%d, duration=%.1fs",
-            step_id, passed, action_idx, duration,
+            step_id,
+            passed,
+            action_idx,
+            duration,
         )
 
         return StepResult(
