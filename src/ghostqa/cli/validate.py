@@ -48,6 +48,29 @@ def _validate_product(path: Path) -> list[dict[str, Any]]:
     if not isinstance(data, dict):
         issues.append({"severity": "error", "field": "root", "message": "Product file must be a YAML mapping"})
         return issues
+    # JSON Schema validation (for editor/tooling consistency)
+    try:
+        import json
+        from jsonschema import Draft7Validator  # type: ignore
+
+        schema_path = Path(__file__).resolve().parents[3] / "schemas" / "product.schema.json"
+        if schema_path.is_file():
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+            validator = Draft7Validator(schema)
+
+            schema_errors = sorted(validator.iter_errors(data), key=lambda e: list(e.path))
+            for err in schema_errors:
+                loc = ".".join(str(p) for p in err.path) if err.path else "root"
+                issues.append(
+                    {
+                        "severity": "error",
+                        "field": f"schema.{loc}",
+                        "message": f"Schema validation error: {err.message}",
+                    }
+                )
+    except Exception:
+        # If schema validation isn't available for some reason, don't block validate entirely.
+        pass
 
     product = data.get("product", data)
 
