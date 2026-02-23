@@ -183,11 +183,9 @@ scenario:
 
 See [docs/configuration.md](docs/configuration.md) for the full reference.
 
-## YAML schema support (VS Code)
+## YAML schema support
 
 GhostQA includes a JSON Schema for product YAML files at `schemas/product.schema.json`.
-
-To enable autocomplete and inline validation in VS Code, add this comment at the top of your product YAML:
 
 ```yaml
 # yaml-language-server: $schema=../../schemas/product.schema.json
