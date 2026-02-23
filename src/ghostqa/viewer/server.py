@@ -323,7 +323,7 @@ class _DashboardHandler(BaseHTTPRequestHandler):
         </div>
     </main>
     <footer class="site-footer">
-        <div class="container">GhostQA v0.1.0 &mdash; AI Behavioral Testing</div>
+        <div class="container">GhostQA v0.2.1 &mdash; AI Behavioral Testing</div>
     </footer>
 </body>
 </html>"""
