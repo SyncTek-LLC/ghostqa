@@ -395,4 +395,6 @@ MIT -- see [LICENSE](LICENSE) for details.
 
 ---
 
+<!-- mcp-name: io.github.SyncTekLLC/ghostqa -->
+
 Built by [SyncTek LLC](https://github.com/SyncTek-LLC).

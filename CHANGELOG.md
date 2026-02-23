@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.2.2] — 2026-02-23
+
+### Changed
+
+- Added MCP Registry verification metadata to README (`mcp-name` comment)
+- Added `server.json` for Official MCP Registry submission
+
+---
+
 ## [0.2.1] — 2026-02-23
 
 ### Security
