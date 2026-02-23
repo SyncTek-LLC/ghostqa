@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../schemas/product.schema.json
 name: demo
 display_name: "GhostQA Demo App"
 base_url: "http://localhost:5000"
