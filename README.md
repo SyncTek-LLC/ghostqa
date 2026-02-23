@@ -1,5 +1,11 @@
 # GhostQA
 
+[![PyPI version](https://img.shields.io/pypi/v/ghostqa.svg)](https://pypi.org/project/ghostqa/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/SyncTek-LLC/ghostqa/workflows/CI/badge.svg)](https://github.com/SyncTek-LLC/ghostqa/actions)
+[![MCP Compatible](https://img.shields.io/badge/MCP-compatible-blueviolet)](https://github.com/SyncTek-LLC/ghostqa/blob/main/docs/for-agents.md)
+
 **AI personas walk your app so real users don't trip.**
 
 GhostQA sends AI personas through your application — they look at the screen, decide what to do, and interact like real humans. No test scripts. No selectors. You describe personas and journeys in YAML, and GhostQA handles the rest.
