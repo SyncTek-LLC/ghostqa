@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from ghostqa.engine.native_app_runner import NativeAppRunner
 from ghostqa.engine.protocols import ActionResult, Decision

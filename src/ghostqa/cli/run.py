@@ -437,7 +437,11 @@ def run(
     # Validate level
     valid_levels = {"smoke", "standard", "thorough"}
     if level not in valid_levels:
-        _print_error(console, plain, f"Invalid level: {level}\n\nValid levels: {', '.join(sorted(valid_levels))}", "Config Error")
+        _print_error(
+            console, plain,
+            f"Invalid level: {level}\n\nValid levels: {', '.join(sorted(valid_levels))}",
+            "Config Error",
+        )
         raise typer.Exit(code=2)
 
     # Validate fail-on-severity

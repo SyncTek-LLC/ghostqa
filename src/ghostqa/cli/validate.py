@@ -7,15 +7,12 @@ mistakes before committing to a real run.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
-from rich.text import Text
 
 console = Console(stderr=True)
 
@@ -173,17 +170,26 @@ def _validate_journey(path: Path, personas_dir: Path | None = None) -> list[dict
     # Required fields — accept both `id` and `scenario.id`
     scenario_id = scenario.get("id") or scenario.get("scenario_id") or (data != scenario and data.get("id"))
     if not scenario_id:
-        issues.append({"severity": "error", "field": "id", "message": "Missing required field: id (scenario identifier)"})
+        issues.append({
+            "severity": "error", "field": "id",
+            "message": "Missing required field: id (scenario identifier)",
+        })
 
     # name / display_name are optional but nice to have
     has_name = scenario.get("name") or scenario.get("display_name") or (data != scenario and data.get("display_name"))
     if not has_name:
-        issues.append({"severity": "warning", "field": "name", "message": "name/display_name is missing — consider adding a human-readable name"})
+        issues.append({
+            "severity": "warning", "field": "name",
+            "message": "name/display_name is missing — consider adding a human-readable name",
+        })
 
     # Steps — accept both 'steps' key
     steps = scenario.get("steps", [])
     if not steps:
-        issues.append({"severity": "error", "field": "steps", "message": "Journey has no steps — at least one step is required"})
+        issues.append({
+            "severity": "error", "field": "steps",
+            "message": "Journey has no steps — at least one step is required",
+        })
     else:
         seen_step_ids: set[str] = set()
         for i, step in enumerate(steps):
@@ -232,7 +238,10 @@ def _validate_journey(path: Path, personas_dir: Path | None = None) -> list[dict
     persona_refs = scenario.get("personas", [])
     flat_persona = scenario.get("persona")  # Flat string format used by some schemas
     if not persona_refs and not flat_persona:
-        issues.append({"severity": "error", "field": "personas", "message": "Journey must reference at least one persona"})
+        issues.append({
+            "severity": "error", "field": "personas",
+            "message": "Journey must reference at least one persona",
+        })
     elif flat_persona and isinstance(flat_persona, str):
         # Flat string format: `persona: alex_developer`
         if personas_dir is not None:
@@ -494,6 +503,10 @@ def _print_file_result(path: Path, issues: list[dict[str, Any]], project_dir: Pa
         sev = issue["severity"]
         field = issue.get("field", "")
         msg = issue["message"]
-        sev_label = {"error": "[bold red]ERROR[/bold red]", "warning": "[yellow]WARN[/yellow]", "info": "[dim]INFO[/dim]"}.get(sev, sev)
+        sev_label = {
+            "error": "[bold red]ERROR[/bold red]",
+            "warning": "[yellow]WARN[/yellow]",
+            "info": "[dim]INFO[/dim]",
+        }.get(sev, sev)
         field_str = f"[dim] ({field})[/dim]" if field else ""
         console.print(f"      {sev_label}{field_str}  {msg}")

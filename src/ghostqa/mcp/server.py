@@ -307,7 +307,11 @@ def create_server() -> Any:
                 level=level,
             )
         except Exception as exc:
-            return json.dumps({"error": f"Configuration error: {exc}", "tool_error": True, "error_code": "CONFIG_ERROR"})
+            return json.dumps({
+                "error": f"Configuration error: {exc}",
+                "tool_error": True,
+                "error_code": "CONFIG_ERROR",
+            })
 
         # Run the orchestrator (synchronous -- runs in thread)
         try:
@@ -683,7 +687,7 @@ def create_server() -> Any:
             "files_created": created_files,
             "api_key_configured": api_key_configured,
             "next_steps": [
-                f"Edit .ghostqa/products/demo.yaml with your app's URL"
+                "Edit .ghostqa/products/demo.yaml with your app's URL"
                 + (f" (set to {url})" if url else ""),
                 "Customize personas and journeys for your app",
                 "Install Playwright: playwright install chromium",

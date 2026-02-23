@@ -38,9 +38,9 @@ _HAS_PYOBJC = False
 try:
     from ApplicationServices import (  # type: ignore[import-untyped]
         AXIsProcessTrusted,
-        AXUIElementCreateApplication,
-        AXUIElementCopyAttributeNames,
+        AXUIElementCopyAttributeNames,  # noqa: F401 — pyobjc bridge may need at runtime
         AXUIElementCopyAttributeValue,
+        AXUIElementCreateApplication,
         AXUIElementPerformAction,
         AXUIElementSetAttributeValue,
         AXValueGetValue,
@@ -48,24 +48,24 @@ try:
     )
 
     # Constants from HIServices/AXValue.h — used to unpack AXValueRef objects
-    _kAXValueCGPointType = 1
-    _kAXValueCGSizeType = 2
+    _kAXValueCGPointType = 1  # noqa: N816 — matches Apple SDK naming convention
+    _kAXValueCGSizeType = 2  # noqa: N816 — matches Apple SDK naming convention
 
     from Cocoa import (  # type: ignore[import-untyped]
-        NSRunningApplication,
+        NSRunningApplication,  # noqa: F401 — pyobjc bridge may need at runtime
         NSWorkspace,
     )
     from Quartz import (  # type: ignore[import-untyped]
         CGEventCreateKeyboardEvent,
-        CGEventPost,
         CGEventCreateMouseEvent,
+        CGEventPost,
         CGEventSetIntegerValueField,
+        CGPoint,
         kCGEventLeftMouseDown,
         kCGEventLeftMouseUp,
-        kCGMouseButtonLeft,
         kCGHIDEventTap,
+        kCGMouseButtonLeft,
         kCGMouseEventClickState,
-        CGPoint,
     )
 
     _HAS_PYOBJC = True
@@ -1083,9 +1083,9 @@ class NativeAppRunner:
         try:
             from Quartz import (  # type: ignore[import-untyped]
                 CGWindowListCopyWindowInfo,
-                kCGWindowListOptionOnScreenOnly,
-                kCGWindowListOptionAll,
                 kCGNullWindowID,
+                kCGWindowListOptionAll,
+                kCGWindowListOptionOnScreenOnly,
             )
 
             window_list = CGWindowListCopyWindowInfo(
@@ -1237,7 +1237,7 @@ class NativeAppRunner:
         # that exceed the Anthropic API 5 MB image limit. Use macOS built-in
         # ``sips`` to resize and/or convert so the file stays under 4 MB
         # (leaving margin below the 5 MB hard limit).
-        _MAX_BYTES = 4 * 1024 * 1024  # 4 MB threshold
+        _MAX_BYTES = 4 * 1024 * 1024  # 4 MB threshold  # noqa: N806 — constant naming convention
 
         try:
             size = filepath.stat().st_size
@@ -1358,9 +1358,9 @@ class NativeAppRunner:
         try:
             from Quartz import (  # type: ignore[import-untyped]
                 CGWindowListCopyWindowInfo,
-                kCGWindowListOptionOnScreenOnly,
-                kCGWindowListOptionAll,
                 kCGNullWindowID,
+                kCGWindowListOptionAll,
+                kCGWindowListOptionOnScreenOnly,
             )
 
             # Try on-screen windows first

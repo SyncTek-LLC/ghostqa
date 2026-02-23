@@ -24,9 +24,9 @@ from pathlib import Path
 from typing import Any
 
 from ghostqa.engine.protocols import (
-    AIDecider,
     ActionExecutor,
     ActionResult,
+    AIDecider,
     Decision,
     StepResult,
 )

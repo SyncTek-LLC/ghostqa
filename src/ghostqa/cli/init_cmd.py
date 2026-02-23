@@ -210,7 +210,8 @@ def init(
         existing = gitignore_path.read_text(encoding="utf-8")
         if _personas_gitignore_entry not in existing:
             gitignore_path.write_text(
-                existing.rstrip("\n") + f"\n\n# GhostQA — persona files may contain credential references\n{_personas_gitignore_entry}\n",
+                existing.rstrip("\n")
+                + f"\n\n# GhostQA — persona files may contain credential references\n{_personas_gitignore_entry}\n",
                 encoding="utf-8",
             )
     else:

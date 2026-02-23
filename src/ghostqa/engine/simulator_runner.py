@@ -421,7 +421,7 @@ class SimulatorRunner:
                     continue
                 name = device.get("name", "")
                 udid = device.get("udid", "")
-                state = device.get("state", "")
+                state = device.get("state", "")  # noqa: F841 — kept for future use
 
                 # Name match
                 if self._device_name.lower() not in name.lower():
@@ -608,7 +608,7 @@ class SimulatorRunner:
                 "  activate",
                 "end tell",
                 'tell application "System Events"',
-                f'  tell process "Simulator"',
+                '  tell process "Simulator"',
             ]
             # We use a series of click events to approximate a drag
             for i in range(steps + 1):
