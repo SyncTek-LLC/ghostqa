@@ -6,7 +6,7 @@
 **Affected versions:** v0.2.0 and all earlier versions
 **Fixed in:** v0.2.1
 **Published:** 2026-02-23
-**Contact:** security@synctek.dev
+**Contact:** info@synctek.io
 
 ---
 
@@ -118,7 +118,7 @@ This vulnerability was discovered through internal static analysis of the codeba
 
 ## Reporting New Vulnerabilities
 
-Do not open public GitHub issues for security vulnerabilities. Report them to **security@synctek.dev**.
+Do not open public GitHub issues for security vulnerabilities. Report them to **info@synctek.io**.
 
 See [SECURITY.md](SECURITY.md) for the full security policy, response timelines, and scope definitions.
 

@@ -355,7 +355,7 @@ When set, the MCP server rejects any `directory` value that is not under one of 
 
 **Credential scrubbing:** Run artifacts (JSON result files, log output) automatically scrub known credential patterns — API keys, tokens, passwords — from captured content before writing to disk.
 
-**Reporting vulnerabilities:** Do not open public issues for security bugs. Email **security@synctek.dev** or see [SECURITY.md](SECURITY.md) for the full disclosure policy.
+**Reporting vulnerabilities:** Do not open public issues for security bugs. Email **info@synctek.io** or see [SECURITY.md](SECURITY.md) for the full disclosure policy.
 
 ## Limitations
 

@@ -25,7 +25,7 @@ We provide security updates for the latest minor release. Older versions will no
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, report vulnerabilities by emailing **security@synctek.dev**. Include:
+Instead, report vulnerabilities by emailing **info@synctek.io**. Include:
 
 - A description of the vulnerability
 - Steps to reproduce or a proof of concept
