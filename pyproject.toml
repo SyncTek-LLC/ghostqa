@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ghostqa"
-version = "0.2.0"
+version = "0.2.1"
 description = "AI persona-based behavioral testing for web apps. No test scripts. YAML-configured. Vision-powered."
 readme = "README.md"
 license = "MIT"

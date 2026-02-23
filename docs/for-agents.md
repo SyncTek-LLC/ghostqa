@@ -290,6 +290,18 @@ print(f"UX observations: {result.ux_observations}")
 
 GhostQA ships a native MCP (Model Context Protocol) server. Any MCP-compatible agent host (Claude Desktop, Cursor, Cline, or a custom agent using the MCP SDK) can discover and invoke GhostQA as a structured tool without shelling out to the CLI.
 
+> **Security — directory access:** The `ghostqa_run` tool accepts a `directory` parameter that tells the server where to find the GhostQA project root. When `GHOSTQA_ALLOWED_DIRS` is **unset**, the server accepts any filesystem path the process can read. This is permissive by design for single-user local development, but it is a security risk if the MCP server is exposed to untrusted agents or shared infrastructure.
+>
+> **In any shared, CI, or multi-user environment, set the allowlist:**
+>
+> ```bash
+> export GHOSTQA_ALLOWED_DIRS="/home/ci/projects:/workspace"
+> ```
+>
+> The server will reject any `directory` argument not under one of the listed prefixes and return a structured error. Without this variable set, a compromised or prompt-injected agent could point `ghostqa_run` at an attacker-controlled directory containing a malicious product YAML.
+>
+> See [SECURITY_ADVISORY.md](../SECURITY_ADVISORY.md) (GHSA-GHOSTQA-001) for full details on the attack chain this mitigates.
+
 ### Setup
 
 Add GhostQA to your MCP client config:

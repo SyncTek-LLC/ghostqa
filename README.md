@@ -341,6 +341,22 @@ GhostQA ships an MCP (Model Context Protocol) server. Any MCP-compatible agent (
 
 See [docs/for-agents.md](docs/for-agents.md) for the full programmatic API reference and MCP integration details.
 
+## Security
+
+**Directory access:** When the environment variable `GHOSTQA_ALLOWED_DIRS` is unset, the GhostQA MCP server permits the `directory` parameter of `ghostqa_run` to point at **any path on the filesystem** accessible to the process. In shared or multi-user environments — or anywhere the MCP server is exposed to untrusted agents — you should set this variable to an explicit allowlist:
+
+```bash
+export GHOSTQA_ALLOWED_DIRS="/home/user/projects:/ci/workspaces"
+```
+
+When set, the MCP server rejects any `directory` value that is not under one of the listed prefixes. This mitigates the MCP directory traversal vector described in [SECURITY_ADVISORY.md](SECURITY_ADVISORY.md) (GHSA-GHOSTQA-001).
+
+**Command injection fix (v0.2.1):** The `check_command` field in product YAML service definitions has been removed. It was the source of a critical command injection vulnerability. Precondition checks are now limited to TCP connectivity and HTTP health endpoint checks, which are safe. See [SECURITY_ADVISORY.md](SECURITY_ADVISORY.md) for full details.
+
+**Credential scrubbing:** Run artifacts (JSON result files, log output) automatically scrub known credential patterns — API keys, tokens, passwords — from captured content before writing to disk.
+
+**Reporting vulnerabilities:** Do not open public issues for security bugs. Email **security@synctek.dev** or see [SECURITY.md](SECURITY.md) for the full disclosure policy.
+
 ## Limitations
 
 Be honest with yourself about what this is and isn't:

@@ -4,7 +4,7 @@
 **Severity:** Critical (P0)
 **CVE:** Pending assignment
 **Affected versions:** v0.2.0 and all earlier versions
-**Fixed in:** v0.2.1 (pending release)
+**Fixed in:** v0.2.1
 **Published:** 2026-02-23
 **Contact:** security@synctek.dev
 
@@ -85,7 +85,7 @@ This combined attack requires no pre-existing file system access to the host. Th
 
 ## Fix in v0.2.1
 
-The v0.2.1 release will address this vulnerability by:
+The v0.2.1 release addresses this vulnerability by:
 
 1. **Removing the `check_command` field** from the product YAML schema. Precondition checks will be limited to TCP connectivity checks and HTTP health endpoint checks, which are safe.
 
@@ -99,7 +99,7 @@ The v0.2.1 release will address this vulnerability by:
 pip install --upgrade ghostqa
 ```
 
-PyPI will be updated when v0.2.1 is released. Monitor the [GitHub releases page](https://github.com/SyncTek-LLC/ghostqa/releases) for the patch.
+v0.2.1 is available on PyPI now. See the [GitHub releases page](https://github.com/SyncTek-LLC/ghostqa/releases) for release notes.
 
 ---
 
@@ -110,7 +110,7 @@ PyPI will be updated when v0.2.1 is released. Monitor the [GitHub releases page]
 | 2026-02-23 | Vulnerability identified by internal security review |
 | 2026-02-23 | Advisory drafted and workaround documented |
 | 2026-02-23 | Public advisory published (no prior external reports) |
-| TBD | v0.2.1 released with fixes |
+| 2026-02-23 | v0.2.1 released with fixes |
 
 This vulnerability was discovered through internal static analysis of the codebase. No external exploit or abuse in the wild has been observed. The advisory is published proactively to allow current users to apply workarounds before the patch release.
 
