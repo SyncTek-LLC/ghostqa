@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -33,6 +34,28 @@ console = Console(stderr=True)
 output_console = Console()  # stdout for machine-readable output
 
 logger = logging.getLogger("specterqa.cli.run")
+
+# ── Environment variable helpers ──────────────────────────────────────────
+
+_ENV_BUDGET_KEY = "SPECTERQA_BUDGET"
+
+
+def _resolve_budget_default() -> float:
+    """Resolve the default budget from the SPECTERQA_BUDGET env var, if set."""
+    env_val = os.environ.get(_ENV_BUDGET_KEY)
+    if env_val is not None:
+        try:
+            val = float(env_val)
+            if val <= 0:
+                raise ValueError
+            return val
+        except ValueError:
+            logger.warning(
+                "Ignoring invalid %s value: %r (expected a positive number)",
+                _ENV_BUDGET_KEY,
+                env_val,
+            )
+    return DEFAULT_BUDGET_USD
 
 # ── Severity ordering ─────────────────────────────────────────────────────
 
@@ -366,10 +389,13 @@ def run(
         help="Browser viewport as WIDTHxHEIGHT.  [default: 1280x720]",
     ),
     budget: float = typer.Option(
-        5.00,
+        _resolve_budget_default(),
         "--budget",
         "-b",
-        help="Maximum budget for this run in USD.  [default: 5.0]",
+        help=(
+            "Maximum budget for this run in USD. "
+            "Falls back to SPECTERQA_BUDGET env var if set.  [default: 5.0]"
+        ),
     ),
     fail_on_severity: str = typer.Option(
         "any",
