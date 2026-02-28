@@ -223,6 +223,14 @@ SpecterQA uses Anthropic's Claude API. Every run costs money. Here's what to exp
 
 The default budget is **$5.00 per run**. The engine hard-stops if the budget is exceeded -- no silent overruns. You can set per-day and per-month caps too.
 
+You can also set a default budget via an environment variable to avoid passing `--budget` every time:
+
+```bash
+export SPECTERQA_BUDGET=2.00
+specterqa run -p myapp          # uses $2.00 budget
+specterqa run -p myapp --budget 5.00  # uses $5.00 budget (CLI flag wins)
+```
+
 Model routing helps: simple clicks and scrolls use Haiku (~$0.01 per action), while form fills and initial assessments use Sonnet (~$0.03-0.05 per action). If you have a local Ollama instance, simple actions can route there for zero API cost.
 
 See [docs/cost-guide.md](docs/cost-guide.md) for detailed cost breakdowns and budgeting strategies.
