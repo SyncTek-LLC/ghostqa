@@ -52,8 +52,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/SyncTek-LLC/specterqa"
+Homepage = "https://synctek.io/products/specterqa/"
 Repository = "https://github.com/SyncTek-LLC/specterqa"
+Documentation = "https://github.com/SyncTek-LLC/specterqa#readme"
 Issues = "https://github.com/SyncTek-LLC/specterqa/issues"
 
 [project.scripts]
