@@ -1,7 +1,7 @@
 {
   "name": "SpecterQA",
   "description": "AI behavioral testing for web and native applications. AI personas navigate your app in real browser sessions and report UX issues, broken flows, and errors — no test scripts required.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "url": "https://github.com/SyncTek-LLC/specterqa",
   "homepage": "https://github.com/SyncTek-LLC/specterqa",
   "license": "MIT",

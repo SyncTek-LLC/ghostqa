@@ -372,7 +372,7 @@ Be honest with yourself about what this is and isn't:
 - **Vision models aren't perfect.** The AI sometimes misreads small text, clicks the wrong element, or gets confused by complex layouts. It's good, not infallible. You'll occasionally see false positives and false negatives.
 - **Not a replacement for unit tests.** SpecterQA tests behavioral UX flows. It doesn't test your business logic, data integrity, or edge case handling. Use it alongside your existing test suite, not instead of it.
 - **macOS native testing requires pyobjc.** The `specterqa[native]` extra pulls in pyobjc packages (~200MB). Only needed for native macOS and iOS Simulator testing.
-- **Alpha software.** Version 0.3.0. APIs may change. File structure may change. Expect rough edges.
+- **Alpha software.** Version 0.4.0. APIs may change. File structure may change. Expect rough edges.
 - **Single-persona per journey (for now).** Multi-persona concurrent testing (e.g., simulating a chat between two users) is on the roadmap but not yet supported.
 - **Deterministic reproduction is hard.** Because the AI makes decisions at runtime, the exact sequence of actions varies between runs. Same journey, same persona, slightly different clicks. This is by design (it catches more issues) but makes exact reproduction tricky.
 
