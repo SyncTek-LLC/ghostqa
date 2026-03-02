@@ -226,11 +226,12 @@ See [docs/configuration.md](docs/configuration.md) for the full reference.
 
 ## YAML schema support
 
-GhostQA includes a JSON Schema for product YAML files at `schemas/product.schema.json`.
+SpecterQA includes a JSON Schema for product YAML files at `schemas/product.schema.json`.
 
 ```yaml
 # yaml-language-server: $schema=../../schemas/product.schema.json
 
+```
 ## CI Integration
 
 SpecterQA is built for CI. It runs headless by default and returns proper exit codes.
