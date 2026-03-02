@@ -92,6 +92,20 @@ class _DashboardHandler(BaseHTTPRequestHandler):
         """Route HTTP logs through the Python logger."""
         logger.debug(format, *args)
 
+    def _add_security_headers(self) -> None:
+        """Add HTTP security headers to every response.
+
+        Called after send_response() and before end_headers() in every
+        response path so that no response can be missing these headers.
+        """
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'",
+        )
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+
     def do_GET(self) -> None:
         """Route GET requests to the appropriate handler."""
         path = unquote(self.path)
@@ -240,6 +254,7 @@ class _DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "public, max-age=3600")
+        self._add_security_headers()
         self.end_headers()
         self.wfile.write(data)
 
@@ -263,6 +278,7 @@ class _DashboardHandler(BaseHTTPRequestHandler):
             f'attachment; filename="{run_id}-report.md"',
         )
         self.send_header("Content-Length", str(len(data)))
+        self._add_security_headers()
         self.end_headers()
         self.wfile.write(data)
 
@@ -284,6 +300,7 @@ class _DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "public, max-age=3600")
+        self._add_security_headers()
         self.end_headers()
         self.wfile.write(data)
 
@@ -293,6 +310,7 @@ class _DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(encoded)))
+        self._add_security_headers()
         self.end_headers()
         self.wfile.write(encoded)
 
@@ -331,6 +349,7 @@ class _DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(encoded)))
+        self._add_security_headers()
         self.end_headers()
         self.wfile.write(encoded)
 

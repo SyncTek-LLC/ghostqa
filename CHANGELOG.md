@@ -7,6 +7,38 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.0] — 2026-03-01
+
+### Security
+
+- Removed hardcoded token from codebase; updated `.gitignore` to prevent future credential commits
+- SSRF protection on orchestrator health checks — outbound requests now validate target URLs against an allowlist before execution
+- Security headers added to dashboard viewer (X-Frame-Options, X-Content-Type-Options, CSP)
+- Updated `SECURITY.md` with current vulnerability disclosure policy and contact
+
+### Agent Discovery
+
+- Added `llms.txt` at the project root for machine-readable agent discovery following the emerging LLMs.txt standard
+
+### Quality
+
+- Hash-chained cost ledger using SHA-256 — each cost entry links to the previous record, enabling tamper detection
+- Config validation on startup: budget values, timeout ranges, severity level, and app_type are now validated with clear error messages before any run begins
+- Dependency upper bounds added for all 8 runtime deps (already present for most; now complete and consistent)
+- CI coverage integration: `pytest-cov` added to dev extras; Codecov upload step added to CI workflow
+- DRY product loading in MCP server — duplicated YAML loading logic consolidated into a shared helper
+
+### Federation
+
+- Shared Mind hook (opt-in, fail-silent): when `SPECTERQA_SHARED_MIND_URL` is set, run results are emitted as observations to the BusinessAtlas Shared Mind substrate; failure to connect is logged and ignored
+
+### Breaking Changes
+
+- **MCP default-deny directory access:** The MCP server's `specterqa_run` tool now rejects all directory paths by default unless `SPECTERQA_ALLOW_ALL_DIRS=1` is set. Previously unset `SPECTERQA_ALLOWED_DIRS` meant permissive access; now unset means deny-all. Set `SPECTERQA_ALLOW_ALL_DIRS=1` to restore the old permissive behavior, or configure `SPECTERQA_ALLOWED_DIRS` with explicit allowed prefixes.
+- **Updated model IDs:** Default model references updated from deprecated aliases to `claude-sonnet-4-6` (action decisions) and `claude-opus-4-6` (complex reasoning). Configs specifying old model IDs by alias may see routing changes.
+
+---
+
 ## [0.3.0] — 2026-02-23
 
 ### Changed

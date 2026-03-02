@@ -105,7 +105,7 @@ class TestBuildAllowedDirs:
         with patch.dict(os.environ, {"SPECTERQA_ALLOWED_DIRS": ""}):
             result = _build_allowed_dirs()
 
-        assert result is None
+        assert result == [Path(".").resolve()]
 
     def test_returns_none_when_env_is_whitespace(self):
         from specterqa.mcp.server import _build_allowed_dirs
@@ -113,7 +113,7 @@ class TestBuildAllowedDirs:
         with patch.dict(os.environ, {"SPECTERQA_ALLOWED_DIRS": "   "}):
             result = _build_allowed_dirs()
 
-        assert result is None
+        assert result == [Path(".").resolve()]
 
     def test_parses_single_path_from_env(self, tmp_path: Path):
         from specterqa.mcp.server import _build_allowed_dirs

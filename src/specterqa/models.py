@@ -3,16 +3,16 @@
 # Model IDs for different tiers
 MODELS = {
     "persona_simple": "claude-haiku-4-5-20251001",
-    "persona_complex": "claude-sonnet-4-20250514",
-    "persona_heavy": "claude-opus-4-20250115",
+    "persona_complex": "claude-sonnet-4-6",
+    "persona_heavy": "claude-opus-4-6",
     "analysis": "claude-haiku-4-5-20251001",
 }
 
 # Pricing per million tokens (USD)
 PRICING = {
     "claude-haiku-4-5-20251001": {"input": 0.80, "output": 4.00},
-    "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
-    "claude-opus-4-20250115": {"input": 15.00, "output": 75.00},
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "claude-opus-4-6": {"input": 15.00, "output": 75.00},
 }
 
 # Default budget per run

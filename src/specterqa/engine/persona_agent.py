@@ -25,8 +25,8 @@ logger = logging.getLogger("specterqa.engine.persona_agent")
 # Model ID lookup — maps tier names to model IDs from specterqa.models
 MODEL_IDS: dict[str, str] = {
     "haiku": MODELS.get("persona_simple", "claude-haiku-4-5-20251001"),
-    "sonnet": MODELS.get("persona_complex", "claude-sonnet-4-20250514"),
-    "opus": MODELS.get("persona_heavy", "claude-opus-4-20250115"),
+    "sonnet": MODELS.get("persona_complex", "claude-sonnet-4-6"),
+    "opus": MODELS.get("persona_heavy", "claude-opus-4-6"),
 }
 
 # JSON schema for persona response — used in system prompt

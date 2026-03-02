@@ -158,7 +158,7 @@ class TestCostCalculation:
 
     def test_opus_cost_calculation(self):
         # Opus: $15.00 input, $75.00 output per 1M tokens
-        cost = CostTracker._calculate_cost("claude-opus-4-20250115", 100_000, 50_000)
+        cost = CostTracker._calculate_cost("claude-opus-4-6", 100_000, 50_000)
         expected = (100_000 / 1_000_000) * 15.00 + (50_000 / 1_000_000) * 75.00
         assert abs(cost - expected) < 0.0001
 

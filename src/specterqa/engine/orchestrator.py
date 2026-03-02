@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as dt
+import ipaddress
 import json
 import logging
 import os
@@ -19,10 +20,12 @@ import random
 import re
 import shlex
 import signal
+import socket
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 
@@ -632,6 +635,18 @@ class SpecterQAOrchestrator:
         # Save structured result as JSON and markdown
         self._save_run_artifacts(result, report, evidence_dir)
 
+        # Bidirectional learning: emit signal to BusinessAtlas Shared Mind (opt-in)
+        if self._config.shared_mind_hook:
+            from specterqa.integrations.shared_mind import emit_run_signal
+
+            emit_run_signal(
+                run_id=run_id,
+                passed=passed,
+                findings_count=len(result.findings),
+                cost_usd=result.cost_usd,
+                initiative_id=self._config.initiative_id,
+            )
+
         return report, passed
 
     # ── Config Loading ──────────────────────────────────────────────────
@@ -790,6 +805,68 @@ class SpecterQAOrchestrator:
 
     # ── Preconditions ────────────────────────────────────────────────────
 
+    # SECURITY (FIND-002): Private/loopback IP ranges that precondition health
+    # checks must not be allowed to reach unless the operator explicitly opts in.
+    _PRIVATE_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
+        ipaddress.ip_network("127.0.0.0/8"),
+        ipaddress.ip_network("10.0.0.0/8"),
+        ipaddress.ip_network("172.16.0.0/12"),
+        ipaddress.ip_network("192.168.0.0/16"),
+        ipaddress.ip_network("169.254.0.0/16"),
+        ipaddress.ip_network("::1/128"),
+    )
+
+    @classmethod
+    def _validate_url_safe(cls, url: str) -> None:
+        """Validate that a URL is safe to fetch (SSRF protection).
+
+        Rejects non-http/https schemes and URLs that resolve to private or
+        loopback addresses.  Set the environment variable
+        ``SPECTERQA_ALLOW_PRIVATE_URLS=1`` to bypass this check in trusted
+        environments (e.g., local development with services on 127.0.0.1).
+
+        Raises:
+            SpecterQAConfigError: If the URL fails validation.
+        """
+        from specterqa.config import SpecterQAConfigError  # avoid circular at module level
+
+        # Allow bypass for trusted local development environments
+        if os.environ.get("SPECTERQA_ALLOW_PRIVATE_URLS", "").strip() == "1":
+            return
+
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise SpecterQAConfigError(
+                f"SSRF protection: URL scheme '{parsed.scheme}' is not allowed. "
+                f"Only http and https are permitted. URL: {url}"
+            )
+
+        hostname = parsed.hostname
+        if not hostname:
+            raise SpecterQAConfigError(
+                f"SSRF protection: URL has no resolvable hostname. URL: {url}"
+            )
+
+        try:
+            results = socket.getaddrinfo(hostname, None)
+        except socket.gaierror as exc:
+            raise SpecterQAConfigError(
+                f"SSRF protection: Could not resolve hostname '{hostname}': {exc}. URL: {url}"
+            ) from exc
+
+        for result in results:
+            addr_str = result[4][0]
+            try:
+                addr = ipaddress.ip_address(addr_str)
+            except ValueError:
+                continue
+            for network in cls._PRIVATE_NETWORKS:
+                if addr in network:
+                    raise SpecterQAConfigError(
+                        f"SSRF protection: URL '{url}' resolves to a private/loopback address "
+                        f"({addr_str}). Set SPECTERQA_ALLOW_PRIVATE_URLS=1 to allow private URLs."
+                    )
+
     def _check_preconditions(
         self,
         preconditions: list[dict[str, Any]],
@@ -827,6 +904,8 @@ class SpecterQAOrchestrator:
             health_endpoint = check if check.startswith("/") else service.get("health_endpoint", "/")
             url = base_url.rstrip("/") + health_endpoint
             try:
+                # SECURITY (FIND-002): Validate URL against SSRF blocklist before fetching
+                self._validate_url_safe(url)
                 resp = requests.get(url, timeout=10)
                 if expected_status and resp.status_code != expected_status:
                     errors.append(
@@ -835,6 +914,8 @@ class SpecterQAOrchestrator:
                     )
             except requests.RequestException as exc:
                 errors.append(f"Service '{service_name}' unreachable: {exc} (URL: {url})")
+            except Exception as exc:  # SpecterQAConfigError from _validate_url_safe
+                errors.append(f"Service '{service_name}' URL rejected: {exc}")
 
         return len(errors) == 0, errors
 

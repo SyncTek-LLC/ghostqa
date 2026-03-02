@@ -1,0 +1,52 @@
+# SpecterQA
+
+AI persona-based behavioral testing for web applications. No test scripts required. Configure test personas and journeys in YAML; SpecterQA uses vision-powered AI agents to navigate your app as a real user would, surface UX findings, and report structured results.
+
+## MCP Tools
+
+SpecterQA ships a native MCP (Model Context Protocol) server. Add `specterqa-mcp` to your MCP client config to access these tools:
+
+| Tool | Description |
+|------|-------------|
+| `specterqa_run` | Execute behavioral tests against a product. Accepts: product (required), journey, level (smoke/standard/thorough), budget (USD cap), directory. Returns structured JSON with pass/fail, findings, and cost. |
+| `specterqa_list_products` | List configured products and available journeys in the current project directory. |
+| `specterqa_get_results` | Read full structured results from a completed run by run ID. |
+| `specterqa_init` | Initialize a new SpecterQA project directory with sample configs. |
+| `specterqa_status` | Check the status of an in-progress or recently completed run. |
+
+## CLI Commands
+
+```
+specterqa run -p <product> [--journey <id>] [--level smoke|standard|thorough] [--output json] [--budget 5.00]
+specterqa list -p <product>
+specterqa view [--port 8199]
+specterqa init [--dir .specterqa]
+specterqa install
+```
+
+- Human-readable progress goes to stderr
+- Structured JSON results go to stdout when `--output json` is used
+- Exit code 0 = all tests passed, non-zero = failure
+
+## Getting Started
+
+1. Install: `pip install specterqa`
+2. Install browser: `specterqa install`
+3. Initialize project: `specterqa init`
+4. Configure a product in `.specterqa/products/<name>.yaml`
+5. Write a journey in `.specterqa/journeys/<name>.yaml`
+6. Run: `specterqa run -p <name> --level smoke`
+
+Set `ANTHROPIC_API_KEY` in your environment before running.
+
+## Agent Integration
+
+Full integration documentation including JSON output schema, Python API, federated protocol, and MCP workflow patterns:
+
+- [docs/for-agents.md](docs/for-agents.md)
+
+## Security Notes
+
+- Set `SPECTERQA_ALLOWED_DIRS` in shared or CI environments to restrict which project directories the MCP server can access.
+- Never commit `.env` files or API keys. Use environment variables.
+- See [SECURITY.md](SECURITY.md) for the vulnerability reporting process.

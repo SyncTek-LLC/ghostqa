@@ -42,7 +42,7 @@ MODEL_PRICING: dict[str, tuple[float, float]] = _build_model_pricing()
 MODEL_PRICING["ollama:llava:13b"] = (0.0, 0.0)
 
 # Default fallback model for unknown model IDs
-_FALLBACK_MODEL = "claude-sonnet-4-20250514"
+_FALLBACK_MODEL = "claude-sonnet-4-6"
 
 
 @dataclasses.dataclass
@@ -293,12 +293,15 @@ class CostTracker:
         ledger = CostTracker._ledger_path(base_dir)
         ledger.parent.mkdir(parents=True, exist_ok=True)
 
+        prev_hash = CostTracker._last_hash(ledger)
+
         entry = {
             "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
             "run_id": run_id,
             "product": product,
             "level": level,
             "cost_usd": round(cost_usd, 6),
+            "previous_hash": prev_hash,
         }
         with ledger.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, separators=(",", ":")) + "\n")

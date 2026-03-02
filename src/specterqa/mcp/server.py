@@ -26,47 +26,70 @@ from typing import Any
 logger = logging.getLogger("specterqa.mcp")
 
 
-# SECURITY (FIND-002): Optional allowlist of base directories the MCP server
-# is permitted to access.  Controlled via the SPECTERQA_ALLOWED_DIRS environment
-# variable — a colon-separated list of absolute paths.
+# SECURITY (FIND-002): Directory allowlist for the MCP server.
 #
-# When SPECTERQA_ALLOWED_DIRS is set, any `directory` argument that does NOT
-# resolve to within one of the listed bases is rejected.  This prevents an
-# AI agent from pointing SpecterQA at arbitrary filesystem locations (e.g.
-# "/etc", "/home/other-user").
+# SPECTERQA_ALLOWED_DIRS — colon-separated list of absolute paths the MCP
+# server is permitted to access.  Any `directory` argument that does NOT
+# resolve within one of the listed bases is rejected.
 #
-# When SPECTERQA_ALLOWED_DIRS is NOT set (the default), all directories are
-# permitted.  Operators running the MCP server in shared or multi-user
-# environments are strongly encouraged to set this variable.
-def _build_allowed_dirs() -> list[Path] | None:
+# DEFAULT-DENY (BREAKING CHANGE in v0.4.0): When SPECTERQA_ALLOWED_DIRS is
+# NOT set, the server now restricts access to its own working directory only
+# (Path.cwd() at import time).  Previously all directories were permitted,
+# which allowed an MCP-connected AI agent to point SpecterQA at arbitrary
+# filesystem locations (e.g. "/etc", "/home/other-user").
+#
+# ESCAPE HATCH: Set SPECTERQA_ALLOW_ALL_DIRS=1 to restore the old open-access
+# behaviour.  This is strongly discouraged in production and multi-user
+# environments.
+def _build_allowed_dirs() -> list[Path]:
     """Build the list of allowed base directories from the environment.
 
-    Returns None if SPECTERQA_ALLOWED_DIRS is not set (no restriction active).
+    Resolution order:
+    1. If SPECTERQA_ALLOW_ALL_DIRS=1 → no restriction (returns []).
+       An empty list is the sentinel for "no restriction active".
+    2. If SPECTERQA_ALLOWED_DIRS is set → use the colon-separated paths.
+    3. Default-deny fallback → [Path.cwd().resolve()] (server working directory).
     """
-    env_val = os.environ.get("SPECTERQA_ALLOWED_DIRS", "")
-    if env_val.strip():
-        return [Path(p).resolve() for p in env_val.split(":") if p.strip()]
-    return None  # No restriction configured
+    # Escape hatch: operator explicitly opts in to open access
+    if os.environ.get("SPECTERQA_ALLOW_ALL_DIRS", "").strip() == "1":
+        return []  # Empty list = no restriction
+
+    explicit = os.environ.get("SPECTERQA_ALLOWED_DIRS", "")
+    if explicit.strip():
+        return [Path(p).resolve() for p in explicit.split(":") if p.strip()]
+
+    # Default-deny: restrict to the server's working directory
+    default = Path.cwd().resolve()
+    logger.warning(
+        "SECURITY: SPECTERQA_ALLOWED_DIRS is not set. "
+        "Defaulting to server working directory: %s. "
+        "Set SPECTERQA_ALLOWED_DIRS to allow additional directories, "
+        "or set SPECTERQA_ALLOW_ALL_DIRS=1 to disable directory restrictions (not recommended).",
+        default,
+    )
+    return [default]
 
 
 # Computed once at import time so the allowlist is stable across all tool calls.
-_ALLOWED_DIRS: list[Path] | None = _build_allowed_dirs()
+# An empty list means no restriction (SPECTERQA_ALLOW_ALL_DIRS=1 was set).
+_ALLOWED_DIRS: list[Path] = _build_allowed_dirs()
 
 
 def _validate_directory(directory: str | None) -> tuple[Path | None, str | None]:
-    """Resolve *directory* and verify it is within an allowed base (if configured).
+    """Resolve *directory* and verify it is within an allowed base.
 
     Returns (resolved_path, None) on success, or (None, error_message) if
-    the path is outside all allowed bases when SPECTERQA_ALLOWED_DIRS is set.
+    the path is outside all allowed bases.
 
-    SECURITY (FIND-002): Prevents path traversal by an MCP-connected AI agent
-    when the operator has configured directory restrictions.
+    SECURITY (FIND-002): Prevents path traversal by an MCP-connected AI agent.
+    Default-deny: when SPECTERQA_ALLOWED_DIRS is unset, only the server's cwd
+    is permitted unless SPECTERQA_ALLOW_ALL_DIRS=1 is set.
     """
     start = Path(directory).resolve() if directory else Path.cwd().resolve()
     logger.info("MCP directory request: %s (resolved: %s)", directory, start)
 
-    # No restriction configured — allow all directories
-    if _ALLOWED_DIRS is None:
+    # Empty list = no restriction (SPECTERQA_ALLOW_ALL_DIRS=1)
+    if not _ALLOWED_DIRS:
         return start, None
 
     for allowed in _ALLOWED_DIRS:
@@ -81,7 +104,8 @@ def _validate_directory(directory: str | None) -> tuple[Path | None, str | None]
         f"Directory access denied: {start}\n\n"
         f"The MCP server only allows access within: {allowed_list}\n\n"
         "To allow additional directories, set the SPECTERQA_ALLOWED_DIRS "
-        "environment variable to a colon-separated list of permitted base paths."
+        "environment variable to a colon-separated list of permitted base paths, "
+        "or set SPECTERQA_ALLOW_ALL_DIRS=1 to disable directory restrictions."
     )
 
 
@@ -439,7 +463,7 @@ def create_server() -> Any:
             )
 
         try:
-            import yaml  # type: ignore
+            import yaml  # noqa: F401 — ensure PyYAML is available before iterating
         except ImportError:
             return json.dumps(
                 {
@@ -451,39 +475,15 @@ def create_server() -> Any:
 
         results: list[dict[str, Any]] = []
 
+        # Flat-file products: products/<name>.yaml
         for product_file in sorted(products_dir.glob("*.yaml")):
-            try:
-                with open(product_file, encoding="utf-8") as fh:
-                    data = yaml.safe_load(fh) or {}
-            except Exception as exc:
-                logger.warning("Failed to parse %s: %s", product_file, exc)
+            entry = _load_product_entry(product_file, fallback_name=product_file.stem)
+            if entry is None:
                 continue
+            entry["journeys"] = _find_journeys_for_product(project_dir, entry["name"])
+            results.append(entry)
 
-            product = data.get("product", data)
-            product_name = product.get("name", product_file.stem)
-            base_url = ""
-            services = product.get("services", {})
-            if services:
-                frontend = services.get("frontend", {})
-                base_url = frontend.get("url", "")
-            if not base_url:
-                base_url = product.get("base_url", "")
-
-            app_type = product.get("app_type", "web")
-
-            # Find journeys for this product
-            journeys = _find_journeys_for_product(project_dir, product_name)
-
-            results.append(
-                {
-                    "name": product_name,
-                    "base_url": base_url,
-                    "app_type": app_type,
-                    "journeys": journeys,
-                }
-            )
-
-        # Also check for directory-style products (product/_product.yaml)
+        # Directory-style products: products/<name>/_product.yaml
         for subdir in sorted(products_dir.iterdir()):
             if not subdir.is_dir():
                 continue
@@ -491,38 +491,15 @@ def create_server() -> Any:
             if not product_file.is_file():
                 continue
 
-            # Skip if we already found a flat-file version
+            # Skip if a flat-file version was already discovered
             if any(p["name"] == subdir.name for p in results):
                 continue
 
-            try:
-                with open(product_file, encoding="utf-8") as fh:
-                    data = yaml.safe_load(fh) or {}
-            except Exception as exc:
-                logger.warning("Failed to parse %s: %s", product_file, exc)
+            entry = _load_product_entry(product_file, fallback_name=subdir.name)
+            if entry is None:
                 continue
-
-            product = data.get("product", data)
-            product_name = product.get("name", subdir.name)
-            base_url = ""
-            services = product.get("services", {})
-            if services:
-                frontend = services.get("frontend", {})
-                base_url = frontend.get("url", "")
-            if not base_url:
-                base_url = product.get("base_url", "")
-
-            app_type = product.get("app_type", "web")
-            journeys = _find_journeys_for_product(project_dir, product_name)
-
-            results.append(
-                {
-                    "name": product_name,
-                    "base_url": base_url,
-                    "app_type": app_type,
-                    "journeys": journeys,
-                }
-            )
+            entry["journeys"] = _find_journeys_for_product(project_dir, entry["name"])
+            results.append(entry)
 
         return json.dumps(results, indent=2)
 
@@ -814,6 +791,48 @@ def create_server() -> Any:
         )
 
     return mcp
+
+
+def _load_product_entry(product_file: Path, fallback_name: str) -> dict[str, Any] | None:
+    """Parse a product YAML file and return a normalised product info dict.
+
+    Returns a dict with keys ``name``, ``base_url``, and ``app_type``, or
+    ``None`` if the file cannot be parsed.
+
+    The *fallback_name* is used when the YAML does not declare a product name
+    (typically the file stem for flat-file products, or the sub-directory name
+    for directory-style products).
+    """
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        return None
+
+    try:
+        with open(product_file, encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+    except Exception as exc:
+        logger.warning("Failed to parse %s: %s", product_file, exc)
+        return None
+
+    product = data.get("product", data)
+    product_name = product.get("name", fallback_name)
+
+    base_url = ""
+    services = product.get("services", {})
+    if services:
+        frontend = services.get("frontend", {})
+        base_url = frontend.get("url", "")
+    if not base_url:
+        base_url = product.get("base_url", "")
+
+    app_type = product.get("app_type", "web")
+
+    return {
+        "name": product_name,
+        "base_url": base_url,
+        "app_type": app_type,
+    }
 
 
 def _find_journeys_for_product(project_dir: Path, product_name: str) -> list[dict[str, str]]:

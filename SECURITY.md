@@ -1,25 +1,31 @@
 # Security Policy
 
-## Active Security Advisory
-
-**GHSA-SPECTERQA-001 (Critical):** Command injection vulnerability in `_check_preconditions` affecting v0.2.0 and all earlier versions.
-
-**Workaround (immediate):** Remove `check_command` from all product YAML files.
-**Fix:** Upgrade to v0.2.1 when released.
-
-See [SECURITY_ADVISORY.md](SECURITY_ADVISORY.md) for full details.
-
----
-
 ## Supported Versions
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.2.x   | Yes (active)       |
+| 0.4.x   | Yes (active)       |
+| 0.3.x   | Yes (security fixes only) |
+| 0.2.x   | No (EOL)           |
 | 0.1.x   | No                 |
 | < 0.1   | No                 |
 
 We provide security updates for the latest minor release. Older versions will not receive patches.
+
+## Security Improvements in v0.4.0
+
+- **SSRF protection:** Precondition health-check URLs are now validated before fetching. URLs resolving to private/loopback address ranges (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, ::1) are rejected. Set `SPECTERQA_ALLOW_PRIVATE_URLS=1` to allow private addresses in trusted local development environments.
+- **HTTP security headers:** The local dashboard viewer now sets `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer` on all responses.
+- **Token hygiene:** The `.mcpregistry_github_token` pattern is now covered by `.gitignore` under the broader `.mcpregistry_*` and `*.token` globs.
+- **Agent discovery (`llms.txt`):** A `llms.txt` file is now published at the repo root for agent-readable product metadata. Only usage documentation is included — no source code, internal architecture, or business logic.
+
+## Prior Security Advisories
+
+**GHSA-SPECTERQA-001 (Critical, resolved in v0.2.1):** Command injection vulnerability in `_check_preconditions` affecting v0.2.0 and all earlier versions. An executable allowlist and shell-metacharacter rejection were introduced. Upgrade to v0.2.1 or later.
+
+See [SECURITY_ADVISORY.md](SECURITY_ADVISORY.md) for full details on GHSA-SPECTERQA-001.
+
+---
 
 ## Reporting a Vulnerability
 

@@ -59,6 +59,7 @@ class SpecterQAConfig:
     cost_ledger_path: Path | None = None
     system_ledger_path: Path | None = None
     initiative_id: str | None = None
+    shared_mind_hook: bool = False
 
     @classmethod
     def from_file(cls, config_path: Path) -> SpecterQAConfig:
@@ -118,6 +119,32 @@ class SpecterQAConfig:
             config.simulator_device = str(data["simulator_device"])
         if "simulator_os" in data:
             config.simulator_os = str(data["simulator_os"])
+
+        # BusinessAtlas federation
+        config.shared_mind_hook = bool(data.get("shared_mind_hook", False))
+
+        # Validate fields after all coercion is complete
+        _VALID_APP_TYPES = {"web", "native_macos", "ios_simulator", "api"}
+        if config.app_type not in _VALID_APP_TYPES:
+            raise SpecterQAConfigError(
+                f"Invalid app_type '{config.app_type}'. Must be one of: {sorted(_VALID_APP_TYPES)}"
+            )
+
+        if not (0.0 < config.budget <= 1000.0):
+            raise SpecterQAConfigError(
+                f"Invalid budget {config.budget}. Must be > 0.0 and <= 1000.0 (USD)."
+            )
+
+        if not (10 <= config.timeout <= 7200):
+            raise SpecterQAConfigError(
+                f"Invalid timeout {config.timeout}. Must be between 10 and 7200 seconds."
+            )
+
+        _VALID_LEVELS = {"smoke", "standard", "thorough"}
+        if config.level not in _VALID_LEVELS:
+            raise SpecterQAConfigError(
+                f"Invalid level '{config.level}'. Must be one of: {sorted(_VALID_LEVELS)}"
+            )
 
         return config
 
