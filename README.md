@@ -41,6 +41,46 @@ You define **personas** (who is using your app) and **journeys** (what they're t
 
 When something goes wrong, you get evidence: screenshots, UX observations, cost breakdowns, and findings categorized by severity.
 
+## Installation
+
+SpecterQA is distributed via PyPI and requires Python 3.10 or later.
+
+```bash
+pip install specterqa
+```
+
+After installing, download the Playwright browser binaries:
+
+```bash
+specterqa install
+```
+
+For macOS native app testing and iOS Simulator support, install the optional `native` extra:
+
+```bash
+pip install specterqa[native]
+```
+
+For MCP server support (integrating SpecterQA as a tool in Claude Desktop, Cursor, or other MCP clients):
+
+```bash
+pip install specterqa[mcp]
+```
+
+You will also need an Anthropic API key to run tests:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+To verify the installation:
+
+```bash
+specterqa --version
+specterqa init       # scaffold a sample project
+specterqa run -p demo
+```
+
 ## Quick Start
 
 ```bash
@@ -347,6 +387,46 @@ SpecterQA ships an MCP (Model Context Protocol) server. Any MCP-compatible agent
 | `specterqa_init` | Initialize a new SpecterQA project directory |
 
 See [docs/for-agents.md](docs/for-agents.md) for the full programmatic API reference and MCP integration details.
+
+## API Reference
+
+The complete API reference is available at **[specterqa.synctek.io/docs](https://specterqa.synctek.io/docs)**.
+
+### Key classes
+
+| Class | Module | Description |
+|-------|--------|-------------|
+| `SpecterQAConfig` | `specterqa.config` | Root configuration object. Set project dirs, API key, budget, and model routing preferences. |
+| `SpecterQAOrchestrator` | `specterqa.engine.orchestrator` | Main entry point for programmatic runs. Call `orchestrator.run(product, level)` to execute a journey. |
+| `AIDecider` | `specterqa.engine.protocols` | Protocol class. Implement to swap in a custom vision model or decision backend. |
+| `ActionExecutor` | `specterqa.engine.protocols` | Protocol class. Implement to swap in a custom action execution backend (e.g., replace Playwright). |
+| `RunReport` | `specterqa.models` | Structured result returned by `orchestrator.run()`. Contains step reports, findings, and cost breakdown. |
+| `Finding` | `specterqa.models` | Individual UX issue captured during a run. Includes severity, step ID, screenshot reference, and description. |
+
+### CLI reference
+
+| Command | Description |
+|---------|-------------|
+| `specterqa run -p PRODUCT` | Run all journeys for a product |
+| `specterqa run -p PRODUCT --level smoke` | Run only smoke-tagged journeys |
+| `specterqa run -p PRODUCT --junit-xml results.xml` | Emit JUnit XML for CI |
+| `specterqa run -p PRODUCT --output json` | Emit structured JSON to stdout |
+| `specterqa init` | Scaffold a `.specterqa/` project directory with sample configs |
+| `specterqa install` | Download Playwright browser binaries |
+| `specterqa list` | List configured products and journeys |
+| `specterqa results RUN_ID` | Print the full report for a previous run |
+| `specterqa-mcp` | Start the MCP server |
+
+### MCP tools
+
+| Tool | Description |
+|------|-------------|
+| `specterqa_run` | Execute behavioral tests. Parameters: `product` (str), `level` (str, optional), `directory` (str, optional). Returns a `RunReport` JSON object. |
+| `specterqa_list_products` | List all products and their configured journeys. No parameters required. |
+| `specterqa_get_results` | Retrieve a previous run report by `run_id`. |
+| `specterqa_init` | Initialize a new SpecterQA project at a given `directory`. |
+
+For schema definitions, type stubs, and federated protocol details, see [docs/for-agents.md](docs/for-agents.md).
 
 ## Security
 
