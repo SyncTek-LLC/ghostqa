@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/SyncTek-LLC/specterqa/workflows/CI/badge.svg)](https://github.com/SyncTek-LLC/specterqa/actions)
 [![MCP Compatible](https://img.shields.io/badge/MCP-compatible-blueviolet)](https://github.com/SyncTek-LLC/specterqa/blob/main/docs/for-agents.md)
+[![FTI Trust Score](https://forgeos-api.synctek.io/v1/badge/pypi/specterqa/flat)](https://forgeos-api.synctek.io/v1/trust/pypi/specterqa)
 
 **AI personas walk your app so real users don't trip.**
 
