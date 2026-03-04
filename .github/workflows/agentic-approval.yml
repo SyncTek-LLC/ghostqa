@@ -30,43 +30,50 @@ jobs:
               'Test (Python 3.12)'
             ];
 
-            const checks = await github.paginate(github.rest.checks.listForRef, {
-              owner, repo, ref: sha, per_page: 100
-            });
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-            const byName = new Map(checks.map(c => [c.name.trim().toLowerCase(), c]));
-            const missing = [];
-            const pending = [];
-            const failed = [];
+            for (let attempt = 1; attempt <= 90; attempt++) {
+              const checks = await github.paginate(github.rest.checks.listForRef, {
+                owner, repo, ref: sha, per_page: 100
+              });
 
-            for (const name of required) {
-              const c = byName.get(name.trim().toLowerCase());
-              if (!c) {
-                missing.push(name);
-                continue;
+              const byName = new Map(checks.map(c => [c.name.trim().toLowerCase(), c]));
+              const missing = [];
+              const pending = [];
+              const failed = [];
+
+              for (const name of required) {
+                const c = byName.get(name.trim().toLowerCase());
+                if (!c) {
+                  missing.push(name);
+                  continue;
+                }
+                if (c.status !== 'completed') {
+                  pending.push(name);
+                  continue;
+                }
+                if (c.conclusion !== 'success') {
+                  failed.push(`${name} (${c.conclusion || 'unknown'})`);
+                }
               }
-              if (c.status !== 'completed') {
-                pending.push(name);
-                continue;
+
+              if (failed.length) {
+                core.setFailed(`failed: ${failed.join(', ')}`);
+                return;
               }
-              if (c.conclusion !== 'success') {
-                failed.push(`${name} (${c.conclusion || 'unknown'})`);
+              if (!missing.length && !pending.length) {
+                await github.rest.pulls.createReview({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  event: 'APPROVE',
+                  body: 'Agentic approval: all required checks passed.'
+                });
+                return;
               }
+
+              core.info(`Attempt ${attempt}/90 - waiting. missing=${missing.join(',') || '-'} pending=${pending.join(',') || '-'}`);
+              await sleep(20000);
             }
 
-            if (missing.length || pending.length || failed.length) {
-              core.setFailed([
-                missing.length ? `missing: ${missing.join(', ')}` : null,
-                pending.length ? `pending: ${pending.join(', ')}` : null,
-                failed.length ? `failed: ${failed.join(', ')}` : null,
-              ].filter(Boolean).join(' | '));
-              return;
-            }
-
-            await github.rest.pulls.createReview({
-              owner,
-              repo,
-              pull_number: pr.number,
-              event: 'APPROVE',
-              body: 'Agentic approval: all required checks passed.'
-            });
+            core.setFailed('Timeout waiting for required checks to complete.');
