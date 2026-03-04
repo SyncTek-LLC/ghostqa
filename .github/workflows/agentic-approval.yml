@@ -62,13 +62,7 @@ jobs:
                 return;
               }
               if (!missing.length && !pending.length) {
-                await github.rest.pulls.createReview({
-                  owner,
-                  repo,
-                  pull_number: pr.number,
-                  event: 'APPROVE',
-                  body: 'Agentic approval: all required checks passed.'
-                });
+                core.notice('Agentic approval gate passed: all required checks completed successfully.');
                 return;
               }
 
