@@ -1,0 +1,79 @@
+name: Agentic Approval
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  checks: read
+  pull-requests: write
+  contents: read
+
+jobs:
+  gate:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate required checks and auto-approve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const sha = pr.head.sha;
+            const required = [
+              'governance-gates',
+              'Lint',
+              'Test (Python 3.10)',
+              'Test (Python 3.11)',
+              'Test (Python 3.12)'
+            ];
+
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            for (let attempt = 1; attempt <= 90; attempt++) {
+              const checks = await github.paginate(github.rest.checks.listForRef, {
+                owner, repo, ref: sha, per_page: 100
+              });
+
+              const byName = new Map(checks.map(c => [c.name.trim().toLowerCase(), c]));
+              const missing = [];
+              const pending = [];
+              const failed = [];
+
+              for (const name of required) {
+                const c = byName.get(name.trim().toLowerCase());
+                if (!c) {
+                  missing.push(name);
+                  continue;
+                }
+                if (c.status !== 'completed') {
+                  pending.push(name);
+                  continue;
+                }
+                if (c.conclusion !== 'success') {
+                  failed.push(`${name} (${c.conclusion || 'unknown'})`);
+                }
+              }
+
+              if (failed.length) {
+                core.setFailed(`failed: ${failed.join(', ')}`);
+                return;
+              }
+              if (!missing.length && !pending.length) {
+                await github.rest.pulls.createReview({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  event: 'APPROVE',
+                  body: 'Agentic approval: all required checks passed.'
+                });
+                return;
+              }
+
+              core.info(`Attempt ${attempt}/90 - waiting. missing=${missing.join(',') || '-'} pending=${pending.join(',') || '-'}`);
+              await sleep(20000);
+            }
+
+            core.setFailed('Timeout waiting for required checks to complete.');
